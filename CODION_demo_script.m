@@ -29,8 +29,10 @@ params.EHat = -EHat; %the normalized electric field EHat = 2/Z T/Te E*/E_D
 params.refresh_times = 0; % =/= 0 when time-dependent parameters
 
 %%%% example of time-dependent electric field
-%params.refresh_times = linspace(0,grid.tMax,grid.Nt);
-%params.EHat = -2*EHat * sin( linspace(0,pi,grid.Nt) ); % 
+%note that runaway_parameters.m does not work with time-dependent
+%input, so gridMode = 'auto' can not be used
+%params.refresh_times = linspace(0,grid.tMax,grid.Nt)';
+%params.EHat = -EHat * sin( linspace(0,pi,grid.Nt) )';
 
 
 settings.gridMode = 0; %can use 'auto' to automatically calculate 
