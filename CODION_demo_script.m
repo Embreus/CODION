@@ -1,8 +1,8 @@
 %%% This script demonstrates how to specify parameters and settings and run
 %%% CODION, obtaining the time-evolution of the ion distribution function 
 
-suitableDelay = 1 # For 1 second between graph updates
-# suitableDelay = 1e-3 # To just test the script quickly
+suitableDelay = 1; # For 1 second between graph updates
+# suitableDelay = 1e-3; # To just test the script quickly
 
 
 rho_c = .3; %fraction of electrons due to carbon impurities
