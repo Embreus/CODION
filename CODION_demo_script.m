@@ -48,9 +48,6 @@ settings.electronCollisions = 1; %automatically accounts for electron
                                  %composition in the params construct.
 settings.momentumConservation = 1; %momentum-conserving self-collisions
 settings.energyConservation = 1; %energy-conserving self-collisions
-settings.energyConstant = 0; %1 removes energy from the system so that its 
-                             %initial value is retained -- experimental
-                             %setting, do not use.
 settings.initialDistribution = 0; %Maxwellian initial distribution. 1 uses
                                   %a shifted Maxwellian.
 settings.timeAdvanceMethod = 0; %0 is first-order backward differentiation 
