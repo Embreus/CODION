@@ -1,6 +1,9 @@
 %%% This script demonstrates how to specify parameters and settings and run
 %%% CODION, obtaining the time-evolution of the ion distribution function 
 
+suitableDelay = 1; # For 1 second between graph updates
+# suitableDelay = 1e-3; # To just test the script quickly
+
 
 rho_c = .3; %fraction of electrons due to carbon impurities
 params.rhos = [1-rho_c rho_c]; %rhos_i = n_i * Z_i
@@ -95,7 +98,7 @@ for tau=1:grid.Nt
     xlabel('v_{//} / v_{Ti}','fontsize',20,'fontweight','bold')
     ylabel('f_i / n_i','fontsize',20,'fontweight','bold')
     set(gca,'fontsize',16,'fontweight','bold','linewidth',3)
-    pause(5e-2)
+    pause(suitableDelay)
 end
 
 
@@ -119,7 +122,7 @@ for tau=1:grid.Nt%1:1:grid.Nt
     xlabel('v_{//} / v_{Ti}','fontsize',20,'fontweight','bold')
     ylabel('v_\perp / v_{Ti}','fontsize',20,'fontweight','bold')
     set(gca,'fontsize',16,'ytick',[-10 -5 0 5 10],'fontweight','bold','linewidth',2)
-    pause(1e-4)
+    pause(suitableDelay)
 end
 
 

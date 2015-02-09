@@ -21,11 +21,11 @@ addpath('./utilities')
 %[refresh_times,ms0,Zs0,Ts0,rhos0,nes0,EHat0]=rescaleParameters(params,refresh_times);
 %at some point.
 refresh_times = params.refresh_times; 
-ms0 = rescaleParameters(params.ms, refresh_times);
-Zs0 = rescaleParameters(params.Zs, refresh_times);
-Ts0 = rescaleParameters(params.Ts, refresh_times);
+ms0   = rescaleParameters(params.ms,   refresh_times);
+Zs0   = rescaleParameters(params.Zs,   refresh_times);
+Ts0   = rescaleParameters(params.Ts,   refresh_times);
 rhos0 = rescaleParameters(params.rhos, refresh_times);
-nes0 = rescaleParameters(params.nes, refresh_times);
+nes0  = rescaleParameters(params.nes,  refresh_times);
 EHat0 = rescaleParameters(params.EHat, refresh_times);
 
 
@@ -73,13 +73,13 @@ EHat0 = rescaleParameters(params.EHat, refresh_times);
 % Ny0 = number of grid points in x = v / v_Ta:
 % yMax0 = maximum value of y retained;
 
-tMax = grid.tMax;
-Nt = grid.Nt;
-dt = tMax/(Nt-1);
-tHat = linspace(0,tMax,Nt);
-Ny = grid.Ny;
-Nxi = grid.Nxi;
-yMax = grid.yMax;
+tMax  = grid.tMax;
+Nt    = grid.Nt;
+dt    = tMax/(Nt-1);
+tHat  = linspace(0,tMax,Nt);
+Ny    = grid.Ny;
+Nxi   = grid.Nxi;
+yMax  = grid.yMax;
 
 
 % Boundary condition at yMax.
@@ -334,11 +334,11 @@ for iteration = 2:Nt
             %%%%% PROPERLY NORMALIZED WITH TIME-DEPENDENT PARAMETERS  %%%%%
             energyConservingLittleMatrix = zeros(Ny,Ny);
             if settings.energyConservation
-                energyConservingLittleMatrix = generateEnergyConservingLittleMatrix(x);
+                energyConservingLittleMatrix = generateEnergyConservingLittleMatrix(Ta0,Ts,Phi,dPhi,collision_time_mod,rhos,Zs,G,x);
             end
             momentumConservingLittleMatrix = zeros(Ny,Ny);
-            if settings.momentumConservation
-                momentumConservingLittleMatrix = generateMomentumConservingLittleMatrix(x);
+             if settings.momentumConservation
+                momentumConservingLittleMatrix = generateMomentumConservingLittleMatrix(Ta0,Ts,Phi,dPhi,collision_time_mod,rhos,Zs,G,x);
             end
 
 
@@ -348,7 +348,7 @@ for iteration = 2:Nt
             sparseCreator_i=0;
             sparseCreator_j=0;
             sparseCreator_s=0;
-            resetSparseCreator()
+            resetSparseCreator(matrixSize,predictedFillFactor)
 
             if yMaxBoundaryCondition==3
                 rowRange = 1:(Ny-1);
@@ -410,7 +410,7 @@ for iteration = 2:Nt
             end
 
             operator = createSparse();
-            resetSparseCreator()
+            resetSparseCreator(matrixSize,predictedFillFactor)
 
             indices = 1:(matrixSize-1);
             addToSparse(indices, indices, ones(size(indices)))
@@ -521,11 +521,14 @@ fprintf('Time for matrix assembly: %gs,  LU factorization: %gs,  time-advance: %
 % End of time-advance loop
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+end
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % The functions below are all utilities for building sparse matrices:
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-function resetSparseCreator()
+% TODO: make the interface clear: which variables are written two
+function resetSparseCreator(matrixSize,predictedFillFactor)
     sparseCreatorIndex=1;
     estimated_nnz = floor(matrixSize*matrixSize*predictedFillFactor);
     sparseCreator_i=zeros(estimated_nnz,1);
@@ -596,7 +599,8 @@ function A = rescaleParameters(X,refresh_times)
 end
 
 
-function MC_little_matrix = generateMomentumConservingLittleMatrix(x)
+% TODO: package the input variables into one record to reduce the number of arguments
+function MC_little_matrix = generateMomentumConservingLittleMatrix(Ta0, Ts, Phi, dPhi, collision_time_mod, rhos, Zs, G, x)
     fM = exp( - x'.^2 * Ta0/Ts(1));
     ws = simpson_quad(x);
     U_DOWN = ws .* x .* ( Phi(x) - x.*dPhi(x) ) * fM;
@@ -606,7 +610,8 @@ function MC_little_matrix = generateMomentumConservingLittleMatrix(x)
     MC_little_matrix = Uterm_rows'*Uterm_cols;
 end
     
-function EC_little_matrix = generateEnergyConservingLittleMatrix(x)
+% TODO: package the input variables into one record to reduce the number of arguments
+function EC_little_matrix = generateEnergyConservingLittleMatrix(Ta0, Ts, Phi, dPhi, collision_time_mod, rhos, Zs, G, x)
     fM = exp( - x'.^2 * Ta0/Ts(1));
     ws = simpson_quad(x);
     Q_DOWN = ws .* (2*x.^3) .* ( Phi(x) - 2*x.*dPhi(x) ) * fM;
@@ -616,7 +621,6 @@ function EC_little_matrix = generateEnergyConservingLittleMatrix(x)
     
     EC_little_matrix = Qterm_rows'*Qterm_cols;
 end
-
 
 function ES_little_matrix1 = generateEnergyFixingLittleMatrix1(x)
     fM = exp( - x'.^2 * Ta0/Ts(1));
@@ -658,4 +662,3 @@ function ES_little_matrix2 = generateEnergyFixingLittleMatrix2(x)
     
 end
 
-end
