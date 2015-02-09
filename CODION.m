@@ -38,8 +38,6 @@ EHat0 = rescaleParameters(params.EHat, refresh_times);
 % electronCollisions   ; 1: Automatically includes electron scattering.
 % momentumConservation ; 1: Momentum conserving self-collision operator.
 % energyConservation   ; 1: Energy conserving self-collision operator.
-% energyConstant       ; 1: Forces the energy moment of the distribution to 
-%                           the initial value of W = 3T_a/2 at all times.
 % initialDistribution  ; 0: Maxwellian, 1: Shifted Maxwellian (by x0)
 % timeAdvanceMethod    ; 0: Implicit Euler
 %                        1: BDF2 (Backward Differentiation Formula)
@@ -54,7 +52,7 @@ EHat0 = rescaleParameters(params.EHat, refresh_times);
 % Physical parameters:
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%initialDistribution = 0;
+%initialDistribution
 % 0 = A Maxwellian.
 % 1 = A shifted Maxwellian
 
@@ -62,7 +60,7 @@ EHat0 = rescaleParameters(params.EHat, refresh_times);
 % Numerical parameters:
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%timeAdvanceMethod = 0;
+%timeAdvanceMethod
 % 0 = Backward Euler = BDF1 = Adams-Moulton 1
 % 1 = BDF2 (backward differentiation formula)
 % 2 = Trapezoid rule ( = Adams-Moulton 2)
@@ -155,7 +153,9 @@ switch settings.gridMode
         ddy = diag(1./dyds)*dds;
         d2dy2 = -diag(d2yds2 ./ (dyds.^3)) * dds + diag((1./dyds).^2)*d2ds2;
         d2dy2(end,:) = 0;
-    case 'auto' %overrides dx, ymax and Ny to set ''suitable'' ones 
+    case 'auto' %overrides dx, yMax and Ny to set ''suitable'' values based on the values 
+                %chosen for tMax and EHat. Solutions will be well converged (although 
+                %it does not set Nxi, which has to be chosen suitably by the user)
         [Ec,xc1,xc2] = runaway_parameters(params);
         yMax = xc2+6;
         dx0 = 0.45;
@@ -168,7 +168,6 @@ switch settings.gridMode
 end
 %print grid parameters
 fprintf('Ny: %d,   yMax: %g,   Nxi: %d,   dt: %g,  tMax: %g, Nt: %d\n',Ny,yMax,Nxi,dt,tMax,Nt)
-
 
 % Make x a row vector:
 x = x';
@@ -197,10 +196,6 @@ matrixSize = Nxi*(Ny-1) + 1;
 % It is sensitive to which self-collision operator is used -- the 
 % conserving ones add dense blocks.
 predictedFillFactor = (3*Nxi*nnz(abs(ddy) + abs(d2dy2)))/(matrixSize*matrixSize);
-if settings.energyConstant && settings.momentumConservation
-    predictedFillFactor = predictedFillFactor + 3*Ny*Ny/(matrixSize*matrixSize);
-elseif settings.energyConstant
-    predictedFillFactor = predictedFillFactor + 2*Ny*Ny/(matrixSize*matrixSize);
 elseif settings.momentumConservation && settings.energyConservation
     predictedFillFactor = predictedFillFactor + 2*Ny*Ny/(matrixSize*matrixSize);
 elseif settings.momentumConservation || settings.energyConservation
@@ -208,7 +203,6 @@ elseif settings.momentumConservation || settings.energyConservation
 end
 
 fprintf('Matrix size: %g\n',matrixSize)
-
 
 f = zeros(matrixSize, Nt);    
 
@@ -225,7 +219,6 @@ switch settings.initialDistribution
     case 1
         % A shifted (non-normalized) Maxwellian
         x0 = .3; %flow velocity
-        %fMinus1(1:Ny-2) = (1+x(2:Ny-1).^5) .* (1-x0^2).*exp(-x(2:Ny-1).^2);
         fMinus1(1:Ny-2) = (1-x0^2).*exp(-x(2:Ny-1).^2);
         fMinus1(Ny:2*Ny-3) = 2*x0 * x(2:Ny-1).*exp(-x(2:Ny-1).^2);
         fMinus1(end) = 1;
@@ -264,11 +257,6 @@ for iteration = 2:Nt
             Zs = Zs0(refresh_counter,:);
             ne = nes0(refresh_counter);
             EHat = EHat0(refresh_counter);
-            
-            if refresh_counter > 1 
-                %Notify that the matrix is going to be refreshed
-                %fprintf('Rebuilding matrix. New EHat: %g \n', EHat)
-            end
             
             kappas = sqrt(ms*Ta0./(ma0*Ts));
             lnLambda0 = 1;
@@ -360,12 +348,7 @@ for iteration = 2:Nt
                 % Add collision operator
                 xPartMatrix = energyScattering - L*(L+1) * xPartOfPitchAngleScatteringMatrix;
                 if L==0
-                    if settings.energyConstant
-                        energyFixingLittleMatrix1 = generateEnergyFixingLittleMatrix1(x);
-                        xPartMatrix = xPartMatrix + energyFixingLittleMatrix1;
-                    else
-                        xPartMatrix = xPartMatrix + energyConservingLittleMatrix;
-                    end
+                    xPartMatrix = xPartMatrix + energyConservingLittleMatrix;
                 end
                 if L==1
                     xPartMatrix = xPartMatrix + momentumConservingLittleMatrix;
@@ -397,13 +380,6 @@ for iteration = 2:Nt
                 if ell<Nxi
                     columnIndices = ell*(Ny-1) + (1:(Ny-1));
                     littleMatrix = (L+1)/(2*L+3)*EHat*ddy  + diag(EHat*(L+1)*(L+2)/(2*L+3)./x);
-
-                    if settings.energyConstant
-                        if ell==1
-                            energyFixingLittleMatrix2 = generateEnergyFixingLittleMatrix2(x);
-                            littleMatrix = littleMatrix + energyFixingLittleMatrix2;
-                        end
-                    end
                     addSparseBlock(rowIndices, columnIndices, littleMatrix(1+rowRange, 2:(Ny)))
                 end
 
@@ -426,7 +402,6 @@ for iteration = 2:Nt
                     rowIndex = L*(Ny-1) + Ny-1;
                     columnIndices = L*(Ny-1) + (1:(Ny-1));
                     boundaryCondition = ddy(Ny,:);
-                    %boundaryCondition(Ny) = boundaryCondition(Ny) + 2/yMax;
                     boundaryCondition(Ny) = boundaryCondition(Ny) + 2/yMax - 1; %Subtract 1 since we already put a 1 on the diagonal.
                     addSparseBlock(rowIndex, columnIndices, boundaryCondition(2:Ny))
                     if L==0
@@ -436,16 +411,7 @@ for iteration = 2:Nt
             end
 
             diagonalPlusBoundaryCondition = createSparse();
-%             figOffset = 0;
-%             u1 = zeros(size(fMinus1));
-%             u2 = u1;
-%             ws = simpson_quad(x);
-%             u1(1:Ny-1) = 4/sqrt(pi) * ws(2:end) .* x(2:end).^2; 
-%             u2(Ny:2*Ny-2) = 4/(3*sqrt(pi)) * ws(2:end) .* x(2:end).^3;
-%             M = operator;
-%             a1 = M'*u1;
-%             a2 = M'*u2;
-
+            
             switch settings.timeAdvanceMethod
                 case 0
                     % Backward Euler
@@ -460,36 +426,28 @@ for iteration = 2:Nt
                     error('Invalid timeAdvanceMethod')
             end
 
-            %fprintf('Matrix fill fraction: actual = %g,  predicted = %g\n',nnz(operator)/(matrixSize*matrixSize), predictedFillFactor)
-
             timeToAssembleMatrix = toc(startTime);
 
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             % End of building the matrix.
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
-            %fprintf('Beginning LU-factorization...')
             tic
             [factor_L, factor_U, factor_P, factor_Q] = lu(timeAdvanceMatrix);
             timeToLUFactorize = toc;
-            %fprintf('Done.  Beginning time-advance...')
 
     
         end
-    end %end of if statements if matrix should be rebuilt
+    end %end of if statements determining whether matrix should be rebuilt
     
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
     % Beginning of time-advance
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
     % Build the right-hand side
     switch settings.timeAdvanceMethod
         case 0
-            %size(fMinus1)
-            %size(momentumConservingSource)
-            rhs = fMinus1 ;%+ dt * momentumConservingConstantVector;
+            rhs = fMinus1;
         case 1
             rhs = (4/3)*fMinus1 - (1/3)*fMinus2;
         case 2
@@ -622,43 +580,5 @@ function EC_little_matrix = generateEnergyConservingLittleMatrix(Ta0, Ts, Phi, d
     EC_little_matrix = Qterm_rows'*Qterm_cols;
 end
 
-function ES_little_matrix1 = generateEnergyFixingLittleMatrix1(x)
-    fM = exp( - x'.^2 * Ta0/Ts(1));
-    ws = simpson_quad(x);
-    Q_DOWN = 2 * ws .* x.^3 .* ( Phi(x) - 2*x.*dPhi(x) ) * fM;
-    
-    energy_scattering_piece = 0;
-    if settings.electronCollisions
-        energy_scattering_piece = 2 * (2*Ts(1) * (me/ms(1) + 1)*x.^3.*G(kappa_e*x) - x.*Phi(kappa_e*x) );
-    end
-    for i = 1:length(rhos)
-        energy_scattering_piece = energy_scattering_piece + 2 * rhos(i)*Zs(i) * (2*Ts(1)/Ts(i) * (ms(i)/ms(1) + 1)*x.^3.*G(kappas(i)*x) - x.*Phi(kappas(i)*x) );
-    end
-    Qterm_cols = ws .* energy_scattering_piece / Q_DOWN;
-    Qterm_cols(1)=0;
-    Qterm_rows = collision_time_mod * rhos(1) * Zs(1) * 2./x .*(Phi(x) - 2*x.*dPhi(x)).* fM';
-    Qterm_rows(1) = -collision_time_mod * rhos(1) * Zs(1) * (4/sqrt(pi));
-
-    ES_little_matrix1 = zeros(Ny,Ny);
-    for K = 1:Ny
-        ES_little_matrix1(K,:) = Qterm_rows(K) * Qterm_cols;
-    end 
-end
-
-function ES_little_matrix2 = generateEnergyFixingLittleMatrix2(x)
-    fM = exp( - x'.^2 * Ta0/Ts(1));
-    ws = simpson_quad(x);
-    
-    Q_DOWN = 2 * ws .* x.^3 .* ( Phi(x) - 2*x.*dPhi(x) ) * fM;
-    velocity_integral_piece = 2/3 * x.^3;
-    Qterm_cols = EHat * ws .* velocity_integral_piece / Q_DOWN;
-    Qterm_rows = collision_time_mod * rhos(1) * Zs(1) * 2./x .*(Phi(x) - 2*x.*dPhi(x)).* fM';
-    Qterm_rows(1) = collision_time_mod * rhos(1) * Zs(1) * (-4/sqrt(pi));
-    ES_little_matrix2 = zeros(Ny,Ny);
-    
-    for K = 1:Ny
-        ES_little_matrix2(K,:) = Qterm_rows(K) * Qterm_cols;
-    end 
-    
 end
 
