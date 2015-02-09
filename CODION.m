@@ -172,7 +172,6 @@ fprintf('Ny: %d,   yMax: %g,   Nxi: %d,   dt: %g,  tMax: %g, Nt: %d\n',Ny,yMax,N
 % Make x a row vector:
 x = x';
 
-
 % Order of rows in the matrix and right-hand side:
 % --------------------
 % for L=0:(Nxi-1)
@@ -196,7 +195,7 @@ matrixSize = Nxi*(Ny-1) + 1;
 % It is sensitive to which self-collision operator is used -- the 
 % conserving ones add dense blocks.
 predictedFillFactor = (3*Nxi*nnz(abs(ddy) + abs(d2dy2)))/(matrixSize*matrixSize);
-elseif settings.momentumConservation && settings.energyConservation
+if settings.momentumConservation && settings.energyConservation
     predictedFillFactor = predictedFillFactor + 2*Ny*Ny/(matrixSize*matrixSize);
 elseif settings.momentumConservation || settings.energyConservation
     predictedFillFactor = predictedFillFactor + Ny*Ny/(matrixSize*matrixSize);
@@ -479,8 +478,6 @@ fprintf('Time for matrix assembly: %gs,  LU factorization: %gs,  time-advance: %
 % End of time-advance loop
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-end
-
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % The functions below are all utilities for building sparse matrices:
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -536,7 +533,7 @@ function sparseMatrix = createSparse()
     % addToSparse() and addSparseBlock(), call this function to
     % finalize the matrix.
     sparseMatrix = sparse(sparseCreator_i(1:(sparseCreatorIndex-1)), sparseCreator_j(1:(sparseCreatorIndex-1)), sparseCreator_s(1:(sparseCreatorIndex-1)), matrixSize, matrixSize);
-    resetSparseCreator()
+    resetSparseCreator(matrixSize,predictedFillFactor)
 end
 
 
@@ -564,7 +561,6 @@ function MC_little_matrix = generateMomentumConservingLittleMatrix(Ta0, Ts, Phi,
     U_DOWN = ws .* x .* ( Phi(x) - x.*dPhi(x) ) * fM;
     Uterm_cols = ws .* ( Phi(x) - x.*dPhi(x) ) / U_DOWN;
     Uterm_rows = collision_time_mod * rhos(1) * Zs(1) * 4*G(x) .* fM';
-
     MC_little_matrix = Uterm_rows'*Uterm_cols;
 end
     
@@ -581,4 +577,3 @@ function EC_little_matrix = generateEnergyConservingLittleMatrix(Ta0, Ts, Phi, d
 end
 
 end
-
