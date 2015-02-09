@@ -1,25 +1,27 @@
 %%% This script demonstrates how to specify parameters and settings and run
 %%% CODION, obtaining the time-evolution of the ion distribution function 
 
-suitableDelay = 1; # For 1 second between graph updates
-# suitableDelay = 1e-3; # To just test the script quickly
+suitableDelay = 1;      % For 1 second between graph updates
+% suitableDelay = 1e-3; % To just test the script quickly
 
 
-rho_c = .3; %fraction of electrons due to carbon impurities
+rho_c       = .3;              %fraction of electrons due to carbon impurities
 params.rhos = [1-rho_c rho_c]; %rhos_i = n_i * Z_i
-params.Zs = [1 6]; %ion charges
-params.ms = [2 12]; %ion masses, in units of proton masses. Only their ratios 
-                    %appear. Need to add electrons with mass 1/1836 unless
-                    %settings.electronCollisions = 1, which hard-codes it
-params.Ts = [1 1]; %temperatures, Ts_i = T_i/T_e
-params.nes = 1; %list of time-dependent electron densities. Don't touch
-
+params.Zs   = [1 6];           %ion charges
+params.ms   = [2 12];          %ion masses, in units of proton masses. 
+                               %Only their ratios appear. Need to add
+                               %electrons with mass 1/1836 unless
+                               %settings.electronCollisions = 1, 
+                               %which hard-codes it
+params.Ts   = [1 1];           %temperatures, Ts_i = T_i/T_e
+params.nes  = 1;               %list of time-dependent electron densities. 
+                              
 Zeff = params.Zs * params.rhos'; 
 
-grid.Nxi = 30; %number of legendre modes used to represent the distribution
-grid.Ny = 150; %number of velocity grid points
-grid.yMax = 15; %maxium velocity on the grid
-grid.Nt = 10; %number of time steps
+grid.Nxi  = 30;   %number of legendre modes used to represent the distribution
+grid.Ny   = 150;  %number of velocity grid points
+grid.yMax = 15;   %maxium velocity on the grid
+grid.Nt   = 10;   %number of time steps
 grid.tMax = 1000; %final time, normalized to \tau_ie
 tHat = linspace(0,grid.tMax,grid.Nt); %the list of times at which the
                                       %distribution will be evaluated
@@ -38,19 +40,19 @@ params.refresh_times = 0; % =/= 0 when time-dependent parameters
 %params.EHat = -EHat * sin( linspace(0,pi,grid.Nt) )';
 
 
-settings.gridMode = 0; %can use 'auto' to automatically calculate 
-                       %appropriate Ny and yMax to have well-converged
-                       %solutions
-settings.approximateCollOp = 0; %1 uses the v_Ti << v << v_Te asymptotic 
-                                %form of the collision operator
-settings.electronCollisions = 1; %automatically accounts for electron 
-                                 %collisions; only need to specify ion 
-                                 %composition in the params construct.
+settings.gridMode             = 0; %can use 'auto' to automatically  
+                                   %calculate appropriate Ny and yMax 
+                                   %to have well-converged solutions
+settings.approximateCollOp    = 0; %1 uses the v_Ti << v << v_Te asymptotic 
+                                   %form of the collision operator
+settings.electronCollisions   = 1; %automatically accounts for electron 
+                                   %collisions; only need to specify ion 
+                                   %composition in the params construct.
 settings.momentumConservation = 1; %momentum-conserving self-collisions
-settings.energyConservation = 1; %energy-conserving self-collisions
-settings.initialDistribution = 0; %Maxwellian initial distribution. 1 uses
-                                  %a shifted Maxwellian.
-settings.timeAdvanceMethod = 0; %0 is first-order backward differentiation 
+settings.energyConservation   = 1; %energy-conserving self-collisions
+settings.initialDistribution  = 0; %Maxwellian initial distribution. 1 uses
+                                   %a shifted Maxwellian.
+settings.timeAdvanceMethod    = 0; %0 is first-order backward differentiation 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
