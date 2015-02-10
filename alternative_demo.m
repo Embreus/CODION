@@ -31,20 +31,21 @@ tHat = linspace(0,grid.tMax,grid.Nt);
 params.refresh_times = 0;
 params.EHat = -1.64; %V/m
 
-settings.gridMode = 'auto';
-settings.approximateCollOp = 0;
-settings.electronCollisions = 0;
+settings.gridMode             = 'auto';
+settings.approximateCollOp    = 0;
+settings.electronCollisions   = 0;
 settings.momentumConservation = 1;
-settings.energyConservation = 1;
-settings.initialDistribution = 0;
-settings.timeAdvanceMethod = 0;
-settings.units = 1; %1 = SI units
+settings.energyConservation   = 1;
+settings.initialDistribution  = 0;
+settings.timeAdvanceMethod    = 0;
+settings.units                = 1; %1 = SI units
 
-[x,f] = CODION(grid,params,settings);
-grid.Ny = length(x);
+[x,f]     = CODION(grid,params,settings);
+grid.Ny   = length(x);
 grid.yMax = x(end);
+
 [Ec,vc1,vc2] = runaway_parameters(params,settings);
-n = N_x1x2(x,f,0,1e4);
+n    = N_x1x2(x,f,0,1e4);
 n_RI = N_x1x2(x,f,vc1,1e3);
 
 
