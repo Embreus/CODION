@@ -1,9 +1,7 @@
 %%% This script demonstrates how to specify parameters and settings and run
 %%% CODION, obtaining the time-evolution of the ion distribution function 
-
-suitableDelay = 1;      % For 1 second between graph updates
-% suitableDelay = 1e-3; % To just test the script quickly
-
+clear
+clc
 
 rho_c       = .3;              %fraction of electrons due to carbon impurities
 params.rhos = [1-rho_c rho_c]; %rhos_i = n_i * Z_i
@@ -52,23 +50,30 @@ settings.momentumConservation = 1; %momentum-conserving self-collisions
 settings.energyConservation   = 1; %energy-conserving self-collisions
 settings.initialDistribution  = 0; %Maxwellian initial distribution. 1 uses
                                    %a shifted Maxwellian.
-settings.timeAdvanceMethod    = 0; %0 is first-order backward differentiation 
-
+settings.timeAdvanceMethod    = 0; %0:first-order backward differentiation 
+settings.units                = 0; %1 for input parameters in SI units,
+                                   %incompatible with electronCollisions=1
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 [x,f] = CODION(grid,params,settings); %velocity grid x = v/v_Ta and 
                                       %distribution function f=f/(v_Ta^3 n_a)
 grid.Ny = length(x);
-grid.yMax = x(end); %just recalculates grid parameters in case of
-                    %settings.gridMode = 'auto'
+grid.yMax = x(end);         %recalculates grid parameters in case of
+                            %settings.gridMode = 'auto'
 
-n = N_x1x2(x,f,0,1e4); %calculates number of particles with velocity 
-                       %between 0 and 1e4 (i.e. total density)
+[Ec,vc1,vc2] = runaway_parameters(params,settings); %numerically calculates 
+                            %Ec, vc1 and vc2 from the full single-particle 
+                            %friction force.
+n = N_x1x2(x,f,0,1e4);      %calculates number of particles with velocity 
+                            %between 0 and 1e4 (i.e. total density)
+n_RI = N_x1x2(x,f,vc1,1e4); %runaway density, density of particles with 
+                            %v > vc1
+
 
 Nth=200;
-theta=linspace(0,pi,Nth); %creates a grid in theta on which the distribution
-                          %is evaluated
+theta=linspace(0,pi,Nth);   %creates a grid in theta on which the distribution
+                            %is evaluated
 
 fprintf('-----------------------------------\n')
 fprintf('Generating distribution function...\n')
@@ -79,14 +84,16 @@ fprintf('Finished in %g seconds.\n',toc(time))
 fprintf('Density conserved to %2.3g %%. \n',100*(n(end)-n(1))/n(1))
 
 
-[Ec,vc1,vc2] = runaway_parameters(params); %numerically calculates Ec, vc1
-                       %and vc2 from the full single-particle friction
-                       %force.
-n_RI = N_x1x2(x,f,vc1,1e4); %runaway density, density of particles with 
-                            %v > vc1
+
+
+
+
+
+
+pauseTime = 1;   % Time in seconds between graph updates
 
 AX = [-5 grid.yMax 1e-5  1];
-figure(4)
+figure(1)
 set(gcf, 'Position', [10, 100, 600, 500],'color','w')
 for tau=1:grid.Nt
     clf
@@ -97,7 +104,7 @@ for tau=1:grid.Nt
     xlabel('v_{//} / v_{Ti}','fontsize',20,'fontweight','bold')
     ylabel('f_i / n_i','fontsize',20,'fontweight','bold')
     set(gca,'fontsize',16,'fontweight','bold','linewidth',3)
-    pause(suitableDelay)
+    pause(pauseTime)
 end
 
 
@@ -108,7 +115,7 @@ set(gcf, 'Position', [700, 100, 700, 400],'color','w')
 r=linspace(-5,-1,20);
 AX = [-5 17 -10 10];
 lgF = log10(abs(F));
-for tau=1:grid.Nt%1:1:grid.Nt
+for tau=1:1:grid.Nt
     clf
     contourf(K.*cos(TH),K.*sin(TH),lgF(:,:,tau)',r)
     hold on
@@ -121,7 +128,7 @@ for tau=1:grid.Nt%1:1:grid.Nt
     xlabel('v_{//} / v_{Ti}','fontsize',20,'fontweight','bold')
     ylabel('v_\perp / v_{Ti}','fontsize',20,'fontweight','bold')
     set(gca,'fontsize',16,'ytick',[-10 -5 0 5 10],'fontweight','bold','linewidth',2)
-    pause(suitableDelay)
+    pause(pauseTime)
 end
 
 

@@ -14,19 +14,16 @@ addpath('./utilities')
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-%this ugly thing handles time-variable input, 
-%allowing only one of the input parameters to vary in time, 
-%automatically rescaling the other vectors to be of the same size.
-%Rewrite it to read
-%[refresh_times,ms0,Zs0,Ts0,rhos0,nes0,EHat0]=rescaleParameters(params,refresh_times);
-%at some point.
-refresh_times = params.refresh_times; 
-ms0   = rescaleParameters(params.ms,   refresh_times);
-Zs0   = rescaleParameters(params.Zs,   refresh_times);
-Ts0   = rescaleParameters(params.Ts,   refresh_times);
-rhos0 = rescaleParameters(params.rhos, refresh_times);
-nes0  = rescaleParameters(params.nes,  refresh_times);
-EHat0 = rescaleParameters(params.EHat, refresh_times);
+if settings.units == 1
+    %Convert SI units to normalized values
+    [grid,params] = NormalizeParameters(grid,params);
+end
+
+
+%this handles time-variable input, allowing only a
+%few of the input parameters to vary, automatically 
+%rescaling the other vectors to be of the same size.
+[refresh_times,ms0,Zs0,Ts0,rhos0,nes0,EHat0]=RescaleParameters(params);
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -124,8 +121,15 @@ if settings.energyConservation
 end
 fprintf('self-collision operator.\n')
 
+if settings.electronCollisions
+    Zeff = params.Zs(1,:)*params.rhos(1,:)';
+    nbar = params.ms(1)*(params.rhos./params.ms)*params.Zs';
+else
+    Zeff = params.Zs(1,1:end-1)*params.rhos(1,1:end-1)';
+    nbar =  params.ms(1)*(params.rhos(1,1:end-1)./params.ms(1,1:end-1))*params.Zs(1,1:end-1)';
+end
 %print a couple of relevant physical parameters
-fprintf('EHat: %g, Zeff: %g, nbar: %g \n',EHat0(1), sum(rhos0(1,:).*Zs0(1,:)), ms0(1,1)*sum(rhos0(1,:).*Zs0(1,:)./ms0(1,:)) )
+fprintf('EHat: %g, Zeff: %g, nbar: %g \n',EHat0(1), Zeff, nbar)
 
 startTime = tic;
 
@@ -156,14 +160,14 @@ switch settings.gridMode
     case 'auto' %overrides dx, yMax and Ny to set ''suitable'' values based on the values 
                 %chosen for tMax and EHat. Solutions will be well converged (although 
                 %it does not set Nxi, which has to be chosen suitably by the user)
-        [Ec,xc1,xc2] = runaway_parameters(params);
+        params_tmp = params;
+        params_tmp.EHat = max(abs(params.EHat));
+        [Ec,xc1,xc2] = runaway_parameters(params_tmp,settings);
         yMax = xc2+6;
         dx0 = 0.45;
         dx = dx0/tMax^(1/4);
-        Ny = round(yMax/dx);
-        if Ny > 1500
-            Ny = 1500;
-        end
+        Ny = min([round(yMax/dx),1500]);
+        
         [x,~, ddy, d2dy2] = m20121125_04_DifferentiationMatricesForUniformGrid(Ny, yMin, yMax, scheme);
 end
 %print grid parameters
@@ -321,11 +325,11 @@ for iteration = 2:Nt
             %%%%% PROPERLY NORMALIZED WITH TIME-DEPENDENT PARAMETERS  %%%%%
             energyConservingLittleMatrix = zeros(Ny,Ny);
             if settings.energyConservation
-                energyConservingLittleMatrix = generateEnergyConservingLittleMatrix(Ta0,Ts,Phi,dPhi,collision_time_mod,rhos,Zs,G,x);
+                energyConservingLittleMatrix = GenerateEnergyConservingLittleMatrix(Ta0,Ts,Phi,dPhi,collision_time_mod,rhos,Zs,x);
             end
             momentumConservingLittleMatrix = zeros(Ny,Ny);
              if settings.momentumConservation
-                momentumConservingLittleMatrix = generateMomentumConservingLittleMatrix(Ta0,Ts,Phi,dPhi,collision_time_mod,rhos,Zs,G,x);
+                momentumConservingLittleMatrix = GenerateMomentumConservingLittleMatrix(Ta0,Ts,Phi,dPhi,collision_time_mod,rhos,Zs,x);
             end
 
 
@@ -537,11 +541,20 @@ function sparseMatrix = createSparse()
 end
 
 
-function A = rescaleParameters(X,refresh_times)
+function [refresh_times,ms0,Zs0,Ts0,rhos0,nes0,EHat0]=RescaleParameters(params)
+    refresh_times = params.refresh_times; 
+    ms0 = RescaleX(params.ms, refresh_times);
+    Zs0 = RescaleX(params.Zs, refresh_times);
+    Ts0 = RescaleX(params.Ts, refresh_times);
+    rhos0 = RescaleX(params.rhos, refresh_times);
+    nes0 = RescaleX(params.nes, refresh_times);
+    EHat0 = RescaleX(params.EHat, refresh_times);
+end
+
+function A = RescaleX(X,refresh_times)
     N_rfrs = length(refresh_times);
     [N_rows, N_cols] = size(X);
     if N_rows < N_rfrs
-        %fprint('Size of X not compatible with number of refresh times. Setting X constant...')
         A_temp = zeros(N_rfrs,N_cols);
         A_temp(1:N_rows,:) = X;
         for k = N_rows+1:N_rfrs
@@ -555,7 +568,7 @@ end
 
 
 % TODO: package the input variables into one record to reduce the number of arguments
-function MC_little_matrix = generateMomentumConservingLittleMatrix(Ta0, Ts, Phi, dPhi, collision_time_mod, rhos, Zs, G, x)
+function MC_little_matrix = GenerateMomentumConservingLittleMatrix(Ta0, Ts, Phi, dPhi, collision_time_mod, rhos, Zs, x)
     fM = exp( - x'.^2 * Ta0/Ts(1));
     ws = simpson_quad(x);
     U_DOWN = ws .* x .* ( Phi(x) - x.*dPhi(x) ) * fM;
@@ -565,7 +578,7 @@ function MC_little_matrix = generateMomentumConservingLittleMatrix(Ta0, Ts, Phi,
 end
     
 % TODO: package the input variables into one record to reduce the number of arguments
-function EC_little_matrix = generateEnergyConservingLittleMatrix(Ta0, Ts, Phi, dPhi, collision_time_mod, rhos, Zs, G, x)
+function EC_little_matrix = GenerateEnergyConservingLittleMatrix(Ta0, Ts, Phi, dPhi, collision_time_mod, rhos, Zs, x)
     fM = exp( - x'.^2 * Ta0/Ts(1));
     ws = simpson_quad(x);
     Q_DOWN = ws .* (2*x.^3) .* ( Phi(x) - 2*x.*dPhi(x) ) * fM;
@@ -574,6 +587,32 @@ function EC_little_matrix = generateEnergyConservingLittleMatrix(Ta0, Ts, Phi, d
     Qterm_rows(1) = collision_time_mod * rhos(1) * Zs(1) * (-4/sqrt(pi));
     
     EC_little_matrix = Qterm_rows'*Qterm_cols;
+end
+
+function [grid,params] = NormalizeParameters(grid,params)
+    %Changes parameters to CODION-normalization. Incompatibable 
+    %with settings.electronCollisions = 1
+    c = 299792458; %m/s, speed of light
+    eps0 = 8.85418782e-12; %m^-3 kg^-1 s^4 A^2, permittivity vacuum
+    m_e = 9.10938291e-31; %kg, electron mass
+    m_p = 1.67262178e-27; %kg, proton mass
+    e_c = 1.60217657e-19; %C, electron charge
+    kB = 8.6173324e-5; %eV/K, boltzmann constant
+    
+    n_e = -params.rhos(end);
+    m_a = m_p*params.ms(1); %kg
+    v_Ta = sqrt(2*e_c*params.Ts(1)/m_a); %m/s
+    v_Te = sqrt(2*e_c*params.Ts(end)/m_e); %m/s
+    ln_Lambda = log(4*pi/3 * eps0^(3/2)/e_c^3 * (e_c*params.Ts(1))^(3/2)/n_e^(1/2));
+    nu_ie = ln_Lambda * n_e/(4*pi) * (params.Zs(1)*e_c^2/(m_a*eps0))^2 /v_Ta^3; %s^-1
+    E_D = ln_Lambda * n_e/(4*pi) * e_c^3/eps0^2 * 1/(e_c*params.Ts(end)); %V/m
+    
+    grid.tMax = grid.tMax * nu_ie;
+    params.Ts = params.Ts / params.Ts(end);
+    params.rhos = params.rhos / abs(params.rhos(end));
+    Zeff = params.Zs(1:end-1)*params.rhos(1:end-1)';
+    params.EHat = (1-params.Zs(1)/Zeff)*params.EHat/E_D ...
+        *2/params.Zs(1) * params.Ts(1)/params.Ts(end);
 end
 
 end
