@@ -3,7 +3,10 @@ rhos = params.rhos; %sums to 1 <-> quasi-neutrality
 Zs = params.Zs;
 ms = params.ms; %in units of proton masses
 Ts = params.Ts;
-
+if settings.units == 1
+    rhos = rhos/abs(rhos(end));
+    Ts = Ts / Ts(end);
+end  
 me = 9.10938291e-31 / 1.67262178e-27; 
 ma = ms(1);
 Za = Zs(1);
