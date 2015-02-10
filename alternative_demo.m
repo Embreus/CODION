@@ -18,9 +18,6 @@ params.nes  = 1;
 Zeff = params.Zs(1:end-1) * params.rhos(1:end-1)'/ne;
 nbar = params.ms(1)*sum((params.rhos(1:end-1).*params.Zs(1:end-1))./params.ms(1:end-1))/ne;
 
-ma = params.ms(1);
-Za = params.Zs(1);
-
 grid.Nxi  = 30;
 grid.Ny   = [];
 grid.yMax = [];
@@ -33,7 +30,6 @@ tHat = linspace(0,grid.tMax,grid.Nt);
 %params.EHat = EHat * sin(2*pi*params.refresh_times'/grid.tMax * 3) ;
 params.refresh_times = 0;
 params.EHat = -1.64; %V/m
-
 
 settings.gridMode = 'auto';
 settings.approximateCollOp = 0;
