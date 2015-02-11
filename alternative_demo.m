@@ -49,12 +49,13 @@ grid.Nxi  = (length(f(:,1))-1)/(grid.Ny-1);
 n    = N_x1x2(x,f,0,1e4);
 n_RI = N_x1x2(x,f,vc1,1e3);
 
-Nth   = 200;
-theta = linspace(0,pi,Nth);
+
 fprintf('-----------------------------------\n')
 fprintf('Generating distribution function...\n')
-time = tic;
-F    = gen_distribution_function(f,theta,grid);
+Nth   = 200;
+theta = linspace(0,pi,Nth);
+time  = tic;
+F     = gen_distribution_function(f,theta,grid);
 fprintf('Finished in %gs seconds.\n',toc(time))
 
 

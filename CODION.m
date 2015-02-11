@@ -1,24 +1,31 @@
 function [x,f] = CODION(grid0,params0,settings)
-addpath('./utilities')
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %           CODION: COllisional Distribution of IONs
 %           -------------------------------------------
 %           Developed by Ola Embréus, 2014.
 %           CODION paper: to be submitted to Physics of Plasmas
 %           CODION MSc thesis: Ola Embréus 2014, electronically available 
-% at http://publications.lib.chalmers.se/records/fulltext/210276/210276.pdf
+%           at http://publications.lib.chalmers.se/records/...
+%                                           fulltext/210276/210276.pdf
 %
-%           Discretization scheme originally
-%           written by Matt Landreman for CODE, September 2012.
+%           Discretization scheme originally written by 
+%           Matt Landreman for CODE, September 2012.
 %           CODE paper: M. Landreman et al. Comp. Phys. Comm. 185, 3 (2014)
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%TODO: create an output struct containing not only x and f, but also
+%other quantities such as grid and params (since these can be changed
+%if certain settings are used), collision time, E_D, EHat, E/Ec and more
+
+addpath('./utilities')
+
+totalTime = tic;
 switch settings.units 
     case 'SI'
         %Convert SI units to normalized values
         [grid,params] = NormalizeSIParameters(grid0,params0);
     otherwise
-        grid = grid0;
+        grid   = grid0;
         params = params0;
 end
 settings.units = 0;
@@ -26,8 +33,8 @@ settings.units = 0;
 
 %this handles time-variable input, allowing only a
 %few of the input parameters to vary, automatically 
-%rescaling the other vectors to be of the same size.
-[refresh_times,ms0,Zs0,Ts0,rhos0,nes0,EHat0]=RescaleParameters(params);
+%rescaling the other parameters to be of the same size.
+[refresh_times,ms0,Zs0,Ts0,rhos0,nes0,EHat0] = RescaleParameters(params);
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -43,11 +50,14 @@ settings.units = 0;
 % timeAdvanceMethod    ; 0: Implicit Euler
 %                        1: BDF2 (Backward Differentiation Formula)
 %                        2: Trapezoid rule (Adams-Moulton 2)
-% gridMode             ; 0: Uniform grid with Ny and yMax as given
-%                   'auto': Uniform grid with Ny and yMax automatically 
+% gridMode             ; 0: Uniform grid with Ny, yMax and Nxi as given
+%                   'auto': Uniform grid with Ny, yMax, Nxi automatically 
 %                           calculated based on tMax to yield well-
 %                           converged solution. Does not affect Nt.
-
+% units              ;'SI': Input parameters are assumed to be in 
+%                           dimensional units - T in eV, densities in m-3,
+%                           EHat = electric field in V/m, tMax in seconds.
+%                otherwise: Assumes normalized input parameters
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Physical parameters:
@@ -135,8 +145,6 @@ end
 %print a couple of relevant physical parameters
 fprintf('EHat: %g, Zeff: %g, nbar: %g \n',EHat0(1), Zeff, nbar)
 
-startTime = tic;
-
 % Generate differentiation matrices.
 % The yWeights vector could be multiplied by any vector of function
 % values on the y grid to integrate in y, but we will not need this
@@ -178,7 +186,7 @@ switch settings.gridMode
         [x,~, ddy, d2dy2] = m20121125_04_DifferentiationMatricesForUniformGrid(Ny, yMin, yMax, scheme);
 end
 %print grid parameters
-fprintf('Ny: %d,   yMax: %g,   Nxi: %d,   dt: %g,  tMax: %g, Nt: %d\n',Ny,yMax,Nxi,dt,tMax,Nt)
+fprintf('Ny: %d,   yMax: %2.4g,   Nxi: %d,   dt: %2.3g,  tMax: %2.3g, Nt: %d\n',Ny,yMax,Nxi,dt,tMax,Nt)
 
 % Make x a row vector:
 x = x';
@@ -236,12 +244,12 @@ switch settings.initialDistribution
         error('Invalid setting for initial distribution')
 end  
 fMinus2 = fMinus1;
-f(:,1) = fMinus1;
+f(:,1)  = fMinus1;
 
 ne0 = nes0(1,1);
 Ta0 = Ts0(1,1);
 ma0 = ms0(1,1);
-me = 1/1822.89;
+me  = 1/1822.89;
 kappa_e = sqrt(me*Ta0/ma0);
 
 Phi = @(r) erf(r); %Error function = 2/sqrt(pi) int_0^r ds exp(-s^2)
@@ -249,10 +257,9 @@ dPhi = @(r) 2/sqrt(pi) * exp(-r.^2);
 G = @(r)(Phi(r)-r.*dPhi(r))./(2*r.^2); %Chandrasekhar function
 dG =@(r) 2/sqrt(pi) * (1+1./(r.^2)).*exp(-r.^2) - Phi(r)./(r.^3);
 
-x2=x.*x;
+x2 = x.*x;
 
 refresh_counter = 0;
-timeBeforeTimeAdvance = tic;
 for iteration = 2:Nt
     if length(refresh_times) > refresh_counter  %check if it's time to 
                                                 %refresh the matrix.
@@ -261,16 +268,16 @@ for iteration = 2:Nt
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             % Begin building matrix.
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-            ms = ms0(refresh_counter,:);
-            Ts = Ts0(refresh_counter,:);
+            ms   = ms0(refresh_counter,:);
+            Ts   = Ts0(refresh_counter,:);
             rhos = rhos0(refresh_counter,:);
-            Zs = Zs0(refresh_counter,:);
-            ne = nes0(refresh_counter);
+            Zs   = Zs0(refresh_counter,:);
+            ne   = nes0(refresh_counter);
             EHat = EHat0(refresh_counter);
             
-            kappas = sqrt(ms*Ta0./(ma0*Ts));
+            kappas    = sqrt(ms*Ta0./(ma0*Ts));
             lnLambda0 = 1;
-            lnLambda = 1;
+            lnLambda  = 1;
             collision_time_mod = ne * lnLambda / (ne0 * lnLambda0);
 
             %I'm sorry that this is a bit ugly -- lots of if statements in
@@ -341,11 +348,11 @@ for iteration = 2:Nt
 
 
             % Initialize arrays for building the sparse matrix:
-            sparseCreatorIndex=1;
-            estimated_nnz = 0;
-            sparseCreator_i=0;
-            sparseCreator_j=0;
-            sparseCreator_s=0;
+            sparseCreatorIndex = 1;
+            estimated_nnz   = 0;
+            sparseCreator_i = 0;
+            sparseCreator_j = 0;
+            sparseCreator_s = 0;
             resetSparseCreator(matrixSize,predictedFillFactor)
 
             if yMaxBoundaryCondition==3
@@ -436,17 +443,11 @@ for iteration = 2:Nt
                     error('Invalid timeAdvanceMethod')
             end
 
-            timeToAssembleMatrix = toc(startTime);
-
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
             % End of building the matrix.
             %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-            tic
-            [factor_L, factor_U, factor_P, factor_Q] = lu(timeAdvanceMatrix);
-            timeToLUFactorize = toc;
-
-    
+            [factor_L, factor_U, factor_P, factor_Q] = lu(timeAdvanceMatrix);    
         end
     end %end of if statements determining whether matrix should be rebuilt
     
@@ -482,24 +483,20 @@ for iteration = 2:Nt
     
 end
 
-fprintf('Done.\n')
-fprintf('Time for matrix assembly: %gs,  LU factorization: %gs,  time-advance: %gs.\n',timeToAssembleMatrix, timeToLUFactorize, toc(timeBeforeTimeAdvance))
+fprintf('Ion distribution obtained in: %2.4gs \n',toc(totalTime))
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% End of time-advance loop
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% The functions below are all utilities for building sparse matrices:
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% Below are utility functions used in the main body of the code above %%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % TODO: make the interface clear: which variables are written two
 function resetSparseCreator(matrixSize,predictedFillFactor)
-    sparseCreatorIndex=1;
-    estimated_nnz = floor(matrixSize*matrixSize*predictedFillFactor);
-    sparseCreator_i=zeros(estimated_nnz,1);
-    sparseCreator_j=zeros(estimated_nnz,1);
-    sparseCreator_s=zeros(estimated_nnz,1);
+    sparseCreatorIndex = 1;
+    estimated_nnz      = floor(matrixSize*matrixSize*predictedFillFactor);
+    sparseCreator_i    = zeros(estimated_nnz,1);
+    sparseCreator_j    = zeros(estimated_nnz,1);
+    sparseCreator_s    = zeros(estimated_nnz,1);
 end
 
 function addToSparse(i,j,s)
@@ -550,11 +547,11 @@ end
 
 function [refresh_times,ms0,Zs0,Ts0,rhos0,nes0,EHat0]=RescaleParameters(params)
     refresh_times = params.refresh_times; 
-    ms0 = RescaleX(params.ms, refresh_times);
-    Zs0 = RescaleX(params.Zs, refresh_times);
-    Ts0 = RescaleX(params.Ts, refresh_times);
+    ms0   = RescaleX(params.ms, refresh_times);
+    Zs0   = RescaleX(params.Zs, refresh_times);
+    Ts0   = RescaleX(params.Ts, refresh_times);
     rhos0 = RescaleX(params.rhos, refresh_times);
-    nes0 = RescaleX(params.nes, refresh_times);
+    nes0  = RescaleX(params.nes, refresh_times);
     EHat0 = RescaleX(params.EHat, refresh_times);
 end
 
@@ -576,8 +573,8 @@ end
 
 % TODO: package the input variables into one record to reduce the number of arguments
 function MC_little_matrix = GenerateMomentumConservingLittleMatrix(Ta0, Ts, Phi, dPhi, collision_time_mod, rhos, Zs, x)
-    fM = exp( - x'.^2 * Ta0/Ts(1));
-    ws = simpson_quad(x);
+    fM     = exp( - x'.^2 * Ta0/Ts(1));
+    ws     = simpson_quad(x);
     U_DOWN = ws .* x .* ( Phi(x) - x.*dPhi(x) ) * fM;
     Uterm_cols = ws .* ( Phi(x) - x.*dPhi(x) ) / U_DOWN;
     Uterm_rows = collision_time_mod * rhos(1) * Zs(1) * 4*G(x) .* fM';
@@ -586,8 +583,8 @@ end
     
 % TODO: package the input variables into one record to reduce the number of arguments
 function EC_little_matrix = GenerateEnergyConservingLittleMatrix(Ta0, Ts, Phi, dPhi, collision_time_mod, rhos, Zs, x)
-    fM = exp( - x'.^2 * Ta0/Ts(1));
-    ws = simpson_quad(x);
+    fM     = exp( - x'.^2 * Ta0/Ts(1));
+    ws     = simpson_quad(x);
     Q_DOWN = ws .* (2*x.^3) .* ( Phi(x) - 2*x.*dPhi(x) ) * fM;
     Qterm_cols = ws .* (2*x) .* ( Phi(x) - 2*x.*dPhi(x) ) / Q_DOWN;
     Qterm_rows = collision_time_mod * rhos(1) * Zs(1) * 2./x .*(Phi(x) - 2*x.*dPhi(x)).* fM';
@@ -599,19 +596,19 @@ end
 function [grid,params] = NormalizeSIParameters(grid,params)
     %Changes parameters to CODION-normalization. Incompatibable 
     %with settings.electronCollisions = 1
-    eps0 = 8.85418782e-12; %m^-3 kg^-1 s^4 A^2, permittivity vacuum
-    m_p = 1.67262178e-27; %kg, proton mass
-    e_c = 1.60217657e-19; %C, electron charge
+    eps0  = 8.85418782e-12; %m^-3 kg^-1 s^4 A^2, permittivity vacuum
+    m_p   = 1.67262178e-27; %kg, proton mass
+    e_c   = 1.60217657e-19; %C, electron charge
     
-    n_e = -params.rhos(end);
-    m_a = m_p*params.ms(1); %kg
-    v_Ta = sqrt(2*e_c*params.Ts(1)/m_a); %m/s
+    n_e   = -params.rhos(end);
+    m_a   = m_p*params.ms(1); %kg
+    v_Ta  = sqrt(2*e_c*params.Ts(1)/m_a); %m/s
     ln_Lambda = log(4*pi/3 * eps0^(3/2)/e_c^3 * (e_c*params.Ts(1))^(3/2)/n_e^(1/2));
     nu_ie = ln_Lambda * n_e/(4*pi) * (params.Zs(1)*e_c^2/(m_a*eps0))^2 /v_Ta^3; %s^-1
-    E_D = ln_Lambda * n_e/(4*pi) * e_c^3/eps0^2 * 1/(e_c*params.Ts(end)); %V/m
+    E_D   = ln_Lambda * n_e/(4*pi) * e_c^3/eps0^2 * 1/(e_c*params.Ts(end)); %V/m
     
-    grid.tMax = grid.tMax * nu_ie;
-    params.Ts = params.Ts / params.Ts(end);
+    grid.tMax   = grid.tMax * nu_ie;
+    params.Ts   = params.Ts / params.Ts(end);
     params.rhos = params.rhos / abs(params.rhos(end));
     Zeff = params.Zs(1:end-1)*params.rhos(1:end-1)';
     params.EHat = (1-params.Zs(1)/Zeff)*params.EHat/E_D ...
