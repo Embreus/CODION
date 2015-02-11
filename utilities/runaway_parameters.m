@@ -8,17 +8,18 @@ ma = ms(:,1);
 Za = Zs(:,1);
 EHat = abs(params.EHat);
 
-if settings.units == 1
+switch settings.units
+    case 'SI'
     eps0 = 8.85418782e-12; %m^-3 kg^-1 s^4 A^2, permittivity vacuum
-    e_c = 1.60217657e-19; %C, electron charge
-    n_e = -params.rhos(end);
-    Zeff = Zs(1:end-1)*rhos(1:end-1)';
+    e_c  = 1.60217657e-19; %C, electron charge
+    n_e  = -params.rhos(end);
+    Zeff = Zs(1:end-1)*rhos(1:end-1)'/n_e;
     ln_Lambda = log(4*pi/3 * eps0^(3/2)/e_c^3 * (e_c*Ts(1))^(3/2)/n_e^(1/2));
-    E_D = ln_Lambda * n_e/(4*pi) * e_c^3/eps0^2 * 1/(e_c*Ts(end)); %V/m
-    EHat = (1-Za/Zeff)*EHat/E_D ...
-        *2/params.Zs(1) * params.Ts(1)/params.Ts(end);
+    E_D  = ln_Lambda * n_e/(4*pi) * e_c^3/eps0^2 * 1/(e_c*Ts(end)); %V/m
+    EHat =  2/Za * Ts(1)/Ts(end)*abs(1-Za/Zeff)*EHat/E_D;
     rhos = rhos/n_e;
-    Ts = Ts / Ts(end);
+    Ts   = Ts / Ts(end);
+    otherwise
 end  
 
 
@@ -34,7 +35,7 @@ end
 function f = F(x) 
     %calculates normalized collisional friction tau_ae/(m_a v_Ta) F_c, 
     %corresponding to E being normalized to EHat
-    f=0;
+    f = 0;
     G = @(r) (erf(r) - 2/sqrt(pi) * r.*exp(-r.^2))./(2*r.^2);
     if settings.electronCollisions
         kappa_e = sqrt(me*Ts(1)/ma);

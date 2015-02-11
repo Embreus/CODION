@@ -3,12 +3,15 @@
 clear
 clc
 
-rho_c       = .3;              %fraction of electrons due to carbon impurities
+%%% CODION solves for the particle species which 
+%%% appears first in the list of parameters
+
+rho_c       = .3;
 params.rhos = [1-rho_c rho_c]; %rhos_i = n_i * Z_i
 params.Zs   = [1 6];           %ion charges
 params.ms   = [2 12];          %ion masses, in units of proton masses. 
                                %Only their ratios appear. Need to add
-                               %electrons with mass 1/1836 unless
+                               %electrons with mass ~1/1836 unless
                                %settings.electronCollisions = 1, 
                                %which hard-codes it
 params.Ts   = [1 1];           %temperatures, Ts_i = T_i/T_e
@@ -51,7 +54,7 @@ settings.energyConservation   = 1; %energy-conserving self-collisions
 settings.initialDistribution  = 0; %Maxwellian initial distribution. 1 uses
                                    %a shifted Maxwellian.
 settings.timeAdvanceMethod    = 0; %0:first-order backward differentiation 
-settings.units                = 0; %1 for input parameters in SI units,
+settings.units                = 0; %'SI' for input parameters in SI units,
                                    %incompatible with electronCollisions=1
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

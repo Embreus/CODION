@@ -1,4 +1,4 @@
-function [x,f] = CODION(grid,params,settings)
+function [x,f] = CODION(grid0,params0,settings)
 addpath('./utilities')
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %           CODION: COllisional Distribution of IONs
@@ -13,11 +13,15 @@ addpath('./utilities')
 %           CODE paper: M. Landreman et al. Comp. Phys. Comm. 185, 3 (2014)
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
-if settings.units == 1
-    %Convert SI units to normalized values
-    [grid,params] = NormalizeParameters(grid,params);
+switch settings.units 
+    case 'SI'
+        %Convert SI units to normalized values
+        [grid,params] = NormalizeSIParameters(grid0,params0);
+    otherwise
+        grid = grid0;
+        params = params0;
 end
+settings.units = 0;
 
 
 %this handles time-variable input, allowing only a
@@ -150,23 +154,26 @@ switch settings.gridMode
         c0 = 1;
         c1 = 0.01;
         c2 = 5;
-        x = c1*s.^c2 + c0*s;
-        dyds = c2*c1*s.^(c2-1) + c0;
+        x  = c1*s.^c2 + c0*s;
+        dyds   = c2*c1*s.^(c2-1) + c0;
         d2yds2 = c2*(c2-1)*c1*s.^(c2-2);
         
-        ddy = diag(1./dyds)*dds;
-        d2dy2 = -diag(d2yds2 ./ (dyds.^3)) * dds + diag((1./dyds).^2)*d2ds2;
+        ddy    = diag(1./dyds)*dds;
+        d2dy2  = -diag(d2yds2 ./ (dyds.^3)) * dds + diag((1./dyds).^2)*d2ds2;
         d2dy2(end,:) = 0;
     case 'auto' %overrides dx, yMax and Ny to set ''suitable'' values based on the values 
                 %chosen for tMax and EHat. Solutions will be well converged (although 
                 %it does not set Nxi, which has to be chosen suitably by the user)
-        params_tmp = params;
+        params_tmp      = params;
         params_tmp.EHat = max(abs(params.EHat));
-        [Ec,xc1,xc2] = runaway_parameters(params_tmp,settings);
+        [Ec,xc1,xc2]    = runaway_parameters(params_tmp,settings);
         yMax = xc2+6;
-        dx0 = 0.45;
-        dx = dx0/tMax^(1/4);
-        Ny = min([round(yMax/dx),1500]);
+        dx0  = 0.45;
+        dx   = dx0/tMax^(1/4);
+        Ny   = min([round(yMax/dx),1500]);
+        Nxi0 = 40; %suitable option when xc2 \sim 10
+        Nxi  = min([round(Nxi0*xc2/10),500]); %assuming constant width of runaway bump 
+                                             %at accumulation point, Nxi \propto xc2
         
         [x,~, ddy, d2dy2] = m20121125_04_DifferentiationMatricesForUniformGrid(Ny, yMin, yMax, scheme);
 end
@@ -589,20 +596,16 @@ function EC_little_matrix = GenerateEnergyConservingLittleMatrix(Ta0, Ts, Phi, d
     EC_little_matrix = Qterm_rows'*Qterm_cols;
 end
 
-function [grid,params] = NormalizeParameters(grid,params)
+function [grid,params] = NormalizeSIParameters(grid,params)
     %Changes parameters to CODION-normalization. Incompatibable 
     %with settings.electronCollisions = 1
-    c = 299792458; %m/s, speed of light
     eps0 = 8.85418782e-12; %m^-3 kg^-1 s^4 A^2, permittivity vacuum
-    m_e = 9.10938291e-31; %kg, electron mass
     m_p = 1.67262178e-27; %kg, proton mass
     e_c = 1.60217657e-19; %C, electron charge
-    kB = 8.6173324e-5; %eV/K, boltzmann constant
     
     n_e = -params.rhos(end);
     m_a = m_p*params.ms(1); %kg
     v_Ta = sqrt(2*e_c*params.Ts(1)/m_a); %m/s
-    v_Te = sqrt(2*e_c*params.Ts(end)/m_e); %m/s
     ln_Lambda = log(4*pi/3 * eps0^(3/2)/e_c^3 * (e_c*params.Ts(1))^(3/2)/n_e^(1/2));
     nu_ie = ln_Lambda * n_e/(4*pi) * (params.Zs(1)*e_c^2/(m_a*eps0))^2 /v_Ta^3; %s^-1
     E_D = ln_Lambda * n_e/(4*pi) * e_c^3/eps0^2 * 1/(e_c*params.Ts(end)); %V/m
