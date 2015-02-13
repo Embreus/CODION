@@ -1,4 +1,4 @@
-function [x,f] = CODION(grid0,params0,settings)
+function OUT = CODION(grid0,params0,settings)
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %           CODION: COllisional Distribution of IONs
 %           -------------------------------------------
@@ -23,13 +23,15 @@ totalTime = tic;
 switch settings.units 
     case 'SI'
         %Convert SI units to normalized values
-        [grid,params] = NormalizeSIParameters(grid0,params0);
+        [grid,params,OUT] = NormalizeSIParameters(grid0,params0);
     otherwise
         grid   = grid0;
         params = params0;
 end
 settings.units = 0;
-
+OUT.grid       = grid;
+OUT.params     = params;
+OUT.settings   = settings;
 
 %this handles time-variable input, allowing only a
 %few of the input parameters to vary, automatically 
@@ -56,7 +58,8 @@ settings.units = 0;
 %                           converged solution. Does not affect Nt.
 % units              ;'SI': Input parameters are assumed to be in 
 %                           dimensional units - T in eV, densities in m-3,
-%                           EHat = electric field in V/m, tMax in seconds.
+%                           EHat = electric field in V/m, tMax in seconds,
+%                           mass in proton masses
 %                otherwise: Assumes normalized input parameters
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -142,8 +145,21 @@ else
     Zeff = params.Zs(1,1:end-1)*params.rhos(1,1:end-1)';
     nbar =  params.ms(1)*(params.rhos(1,1:end-1)./params.ms(1,1:end-1))*params.Zs(1,1:end-1)';
 end
+OUT.Zeff = Zeff;
+OUT.nbar = nbar;
+params_tmp      = params;
+params_tmp.EHat = max(abs(params.EHat));
+[Ec,xc1,xc2]    = runaway_parameters(params_tmp,settings); %numerically calculates 
+                      %Ec/E_D, vc1/v_Ta and vc2/v_Ta from the full single-particle 
+                      %friction force.
+OUT.Ec  = Ec;
+OUT.vc1 = xc1;
+OUT.vc2 = xc2;
+
+EcHat   = Ec/abs(params.Zs(1)/(2*params.Ts(1)*(1-params.Zs(1)/Zeff)));
 %print a couple of relevant physical parameters
-fprintf('EHat: %g, Zeff: %g, nbar: %g \n',EHat0(1), Zeff, nbar)
+fprintf('EHat: %2.3g, E/E_c: %2.3g, Zeff: %2.3g \n',EHat0(1), abs(EHat0(1)/EcHat), Zeff)
+fprintf('xc1: %2.3g, xc2: %2.3g, nbar: %2.3g \n', xc1, xc2, nbar)
 
 % Generate differentiation matrices.
 % The yWeights vector could be multiplied by any vector of function
@@ -170,26 +186,25 @@ switch settings.gridMode
         d2dy2  = -diag(d2yds2 ./ (dyds.^3)) * dds + diag((1./dyds).^2)*d2ds2;
         d2dy2(end,:) = 0;
     case 'auto' %overrides dx, yMax and Ny to set ''suitable'' values based on the values 
-                %chosen for tMax and EHat. Solutions will be well converged (although 
-                %it does not set Nxi, which has to be chosen suitably by the user)
-        params_tmp      = params;
-        params_tmp.EHat = max(abs(params.EHat));
-        [Ec,xc1,xc2]    = runaway_parameters(params_tmp,settings);
-        yMax = xc2+6;
+                %chosen for tMax and EHat, so that solutions will be well converged
+        yMax = xc2+8;
         dx0  = 0.45;
         dx   = dx0/tMax^(1/4);
         Ny   = min([round(yMax/dx),1500]);
         Nxi0 = 40; %suitable option when xc2 \sim 10
         Nxi  = min([round(Nxi0*xc2/10),500]); %assuming constant width of runaway bump 
                                              %at accumulation point, Nxi \propto xc2
-        
         [x,~, ddy, d2dy2] = m20121125_04_DifferentiationMatricesForUniformGrid(Ny, yMin, yMax, scheme);
+        OUT.grid.Nxi = Nxi;
+        OUT.grid.Ny = Ny;
+        OUT.grid.yMax = yMax;
 end
 %print grid parameters
-fprintf('Ny: %d,   yMax: %2.4g,   Nxi: %d,   dt: %2.3g,  tMax: %2.3g, Nt: %d\n',Ny,yMax,Nxi,dt,tMax,Nt)
+fprintf('Ny: %d,   yMax: %2.4g,   Nxi: %d,   dt: %2.3g,  tMax: %2.4g, Nt: %d\n',Ny,yMax,Nxi,dt,tMax,Nt)
 
 % Make x a row vector:
 x = x';
+OUT.x = x;
 
 % Order of rows in the matrix and right-hand side:
 % --------------------
@@ -222,7 +237,7 @@ end
 
 fprintf('Matrix size: %g\n',matrixSize)
 
-f = zeros(matrixSize, Nt);    
+OUT.f = zeros(matrixSize, Nt);    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Set initial condition:
@@ -244,7 +259,7 @@ switch settings.initialDistribution
         error('Invalid setting for initial distribution')
 end  
 fMinus2 = fMinus1;
-f(:,1)  = fMinus1;
+OUT.f(:,1)  = fMinus1;
 
 ne0 = nes0(1,1);
 Ta0 = Ts0(1,1);
@@ -476,7 +491,7 @@ for iteration = 2:Nt
     % Now step forward in time.
     % The next line is equivalent to 'soln = matrix \ rhs', but much faster:
     soln = factor_Q * (factor_U \ (factor_L \ (factor_P * rhs)));
-    f(:,iteration) = soln;
+    OUT.f(:,iteration) = soln;
 
     fMinus2 = fMinus1;
     fMinus1 = soln;
@@ -593,19 +608,27 @@ function EC_little_matrix = GenerateEnergyConservingLittleMatrix(Ta0, Ts, Phi, d
     EC_little_matrix = Qterm_rows'*Qterm_cols;
 end
 
-function [grid,params] = NormalizeSIParameters(grid,params)
+function [grid,params,OUT] = NormalizeSIParameters(grid,params)
     %Changes parameters to CODION-normalization. Incompatibable 
     %with settings.electronCollisions = 1
-    eps0  = 8.85418782e-12; %m^-3 kg^-1 s^4 A^2, permittivity vacuum
-    m_p   = 1.67262178e-27; %kg, proton mass
-    e_c   = 1.60217657e-19; %C, electron charge
+    eps0 = 8.85418782e-12; %m^-3 kg^-1 s^4 A^2, permittivity vacuum
+    m_p  = 1.67262178e-27; %kg, proton mass
+    m_e  = 9.10938291e-31;
+    e_c  = 1.60217657e-19; %C, electron charge
     
     n_e   = -params.rhos(end);
     m_a   = m_p*params.ms(1); %kg
+    v_Te  = sqrt(2*e_c*params.Ts(end)/m_e);
     v_Ta  = sqrt(2*e_c*params.Ts(1)/m_a); %m/s
     ln_Lambda = log(4*pi/3 * eps0^(3/2)/e_c^3 * (e_c*params.Ts(1))^(3/2)/n_e^(1/2));
     nu_ie = ln_Lambda * n_e/(4*pi) * (params.Zs(1)*e_c^2/(m_a*eps0))^2 /v_Ta^3; %s^-1
     E_D   = ln_Lambda * n_e/(4*pi) * e_c^3/eps0^2 * 1/(e_c*params.Ts(end)); %V/m
+    
+    OUT.lnLambda = ln_Lambda;
+    OUT.v_Te  = v_Te;
+    OUT.v_Ta  = v_Ta;
+    OUT.nu_ie = nu_ie;
+    OUT.E_D   = E_D;
     
     grid.tMax   = grid.tMax * nu_ie;
     params.Ts   = params.Ts / params.Ts(end);

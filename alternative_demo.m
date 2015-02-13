@@ -40,13 +40,17 @@ settings.initialDistribution  = 0;
 settings.timeAdvanceMethod    = 0;
 settings.units                = 'SI'; 
 
-[x,f]     = CODION(grid,params,settings);
-grid.Ny   = length(x);
-grid.yMax = x(end);
-grid.Nxi  = (length(f(:,1))-1)/(grid.Ny-1);
+s = CODION(grid,params,settings);
+x = s.x;
+f = s.f;
+grid     = s.grid;
+params   = s.params;
+settings = s.settings;
 
-[Ec,vc1,vc2] = runaway_parameters(params,settings);
+
+
 n    = N_x1x2(x,f,0,1e4);
+vc1 = s.vc1;
 n_RI = N_x1x2(x,f,vc1,1e3);
 
 

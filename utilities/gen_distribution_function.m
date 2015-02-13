@@ -17,12 +17,9 @@ for l=0:Nxi-1
     P(l+1,:)=P0(1,:);
 end
 
-for tau=1:Nt
-    %for Y=2:Ny
-    for th = 1:Nth
-        for L=0:Nxi-1
-            F(2:Ny,th,tau)=F(2:Ny,th,tau)+f(1+L*(Ny-1):(Ny-1)+L*(Ny-1),tau)*P(L+1,th);
-        end
+for th = 1:Nth
+    for L=0:Nxi-1
+        F(2:Ny,th,:)=squeeze(F(2:Ny,th,:))+f(1+L*(Ny-1):(Ny-1)+L*(Ny-1),:)*P(L+1,th);
     end
 end
 F = F/pi^(3/2);

@@ -59,24 +59,24 @@ settings.units                = 0; %'SI' for input parameters in SI units,
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-[x,f] = CODION(grid,params,settings); %velocity grid x = v/v_Ta and 
-                                      %distribution function f=f/(v_Ta^3 n_a)
-grid.Ny = length(x);
-grid.yMax = x(end);         %recalculates grid parameters in case of
-                            %settings.gridMode = 'auto'
+s = CODION(grid,params,settings); %velocity grid x = v/v_Ta and 
+                                  %distribution function f=f/(v_Ta^3 n_a)
+x = s.x;
+f = s.f;
+grid     = s.grid;
+params   = s.params;
+settings = s.settings;
 
-[Ec,vc1,vc2] = runaway_parameters(params,settings); %numerically calculates 
-                            %Ec, vc1 and vc2 from the full single-particle 
-                            %friction force.
 n = N_x1x2(x,f,0,1e4);      %calculates number of particles with velocity 
                             %between 0 and 1e4 (i.e. total density)
-n_RI = N_x1x2(x,f,vc1,1e4); %runaway density, density of particles with 
+vc1  = s.vc1;
+n_RI = N_x1x2(x,f,vc1,1e4); %runaway density: density of particles with 
                             %v > vc1
 
 
 Nth=200;
-theta=linspace(0,pi,Nth);   %creates a grid in theta on which the distribution
-                            %is evaluated
+theta=linspace(0,pi,Nth);   %creates a grid in pitch-angle on which the 
+                            %distribution function is evaluated
 
 fprintf('-----------------------------------\n')
 fprintf('Generating distribution function...\n')
@@ -88,14 +88,9 @@ fprintf('Density conserved to %2.3g %%. \n',100*(n(end)-n(1))/n(1))
 
 
 
+pauseTime = 0.5;   % Time in seconds between graph updates
 
-
-
-
-
-pauseTime = 1;   % Time in seconds between graph updates
-
-AX = [-5 grid.yMax 1e-5  1];
+AX = [-5 grid.yMax .99e-5  1];
 figure(1)
 set(gcf, 'Position', [10, 100, 600, 500],'color','w')
 for tau=1:grid.Nt
