@@ -48,7 +48,7 @@ end
 
 options = optimset('Display', 'off','LargeScale','off') ;
 v_min_g = (Zeff+nbar)^(1/3) * (9*pi/4 * ma/me)^(1/6);
-v_min = fminunc(@(x)abs(F(x)),v_min_g,options);
+v_min   = fminunc(@(x)abs(F(x)),v_min_g,options);
 Ec = abs(Za/(2*Ts(1)*(1-Za/Zeff))*F(v_min)); %= Ec/E_D
 
 vc1 = zeros(size(EHat));

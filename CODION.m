@@ -89,13 +89,12 @@ tMax  = grid.tMax;
 Nt    = grid.Nt;
 dt    = tMax/(Nt-1);
 tHat  = linspace(0,tMax,Nt);
-Ny    = grid.Ny;
-Nxi   = grid.Nxi;
-yMax  = grid.yMax;
-
+Nx    = grid.Nx;
+xMax  = grid.xMax;
+NL    = grid.NL;
 
 % Boundary condition at yMax.
-yMaxBoundaryCondition = 4;
+xMaxBoundaryCondition = 4;
 % 1 = Dirichlet: F=0.
 % 2 = Robin: dF/dy + (2/y)*F=0, which forces F to behave like 1/y^2.
 % 3 = Do not apply a boundary condition at yMax.
@@ -143,7 +142,7 @@ if settings.electronCollisions
     nbar = params.ms(1)*(params.rhos./params.ms)*params.Zs';
 else
     Zeff = params.Zs(1,1:end-1)*params.rhos(1,1:end-1)';
-    nbar =  params.ms(1)*(params.rhos(1,1:end-1)./params.ms(1,1:end-1))*params.Zs(1,1:end-1)';
+    nbar = params.ms(1)*(params.rhos(1,1:end-1)./params.ms(1,1:end-1))*params.Zs(1,1:end-1)';
 end
 OUT.Zeff = Zeff;
 OUT.nbar = nbar;
@@ -161,19 +160,16 @@ EcHat   = Ec/abs(params.Zs(1)/(2*params.Ts(1)*(1-params.Zs(1)/Zeff)));
 fprintf('EHat: %2.3g, E/E_c: %2.3g, Zeff: %2.3g \n',EHat0(1), abs(EHat0(1)/EcHat), Zeff)
 fprintf('xc1: %2.3g, xc2: %2.3g, nbar: %2.3g \n', xc1, xc2, nbar)
 
-% Generate differentiation matrices.
-% The yWeights vector could be multiplied by any vector of function
-% values on the y grid to integrate in y, but we will not need this
-% feature for the present application.
 
-yMin=0;
+% Generate differentiation matrices.
+xMin=0;
 scheme = 12; %12: uniform grid
 switch settings.gridMode
     case 0
-        [x,~, ddy, d2dy2] = m20121125_04_DifferentiationMatricesForUniformGrid(Ny, yMin, yMax, scheme);
-    case 1 %avoid using this setting, experimental non-uniform grid
-        scheme = 12; %12: uniform grid
-        [s,~, dds, d2ds2] = m20121125_04_DifferentiationMatricesForUniformGrid(Ny, yMin, 1, scheme);
+        [x,~, ddx, d2dx2] = m20121125_04_DifferentiationMatricesForUniformGrid(Nx, xMin, xMax, scheme);
+    case 1 % avoid using this setting, experimental non-uniform grid
+        scheme = 12;
+        [s,~, dds, d2ds2] = m20121125_04_DifferentiationMatricesForUniformGrid(Nx, xMin, 1, scheme);
         
         c0 = 1;
         c1 = 0.01;
@@ -182,25 +178,25 @@ switch settings.gridMode
         dyds   = c2*c1*s.^(c2-1) + c0;
         d2yds2 = c2*(c2-1)*c1*s.^(c2-2);
         
-        ddy    = diag(1./dyds)*dds;
-        d2dy2  = -diag(d2yds2 ./ (dyds.^3)) * dds + diag((1./dyds).^2)*d2ds2;
-        d2dy2(end,:) = 0;
-    case 'auto' %overrides dx, yMax and Ny to set ''suitable'' values based on the values 
+        ddx    = diag(1./dyds)*dds;
+        d2dx2  = -diag(d2yds2 ./ (dyds.^3)) * dds + diag((1./dyds).^2)*d2ds2;
+        d2dx2(end,:) = 0;
+    case 'auto' %overrides Nx, xMax and NL to set ''suitable'' values based on the values 
                 %chosen for tMax and EHat, so that solutions will be well converged
-        yMax = xc2+8;
+        xMax = xc2+8;
         dx0  = 0.45;
         dx   = dx0/tMax^(1/4);
-        Ny   = min([round(yMax/dx),1500]);
-        Nxi0 = 40; %suitable option when xc2 \sim 10
-        Nxi  = min([round(Nxi0*xc2/10),500]); %assuming constant width of runaway bump 
+        Nx   = min([round(xMax/dx),1500]);
+        NL0 = 40; %suitable option when xc2 \sim 10
+        NL  = min([round(NL0*xc2/10),500]); %assuming constant width of runaway bump 
                                              %at accumulation point, Nxi \propto xc2
-        [x,~, ddy, d2dy2] = m20121125_04_DifferentiationMatricesForUniformGrid(Ny, yMin, yMax, scheme);
-        OUT.grid.Nxi = Nxi;
-        OUT.grid.Ny = Ny;
-        OUT.grid.yMax = yMax;
+        [x,~, ddx, d2dx2] = m20121125_04_DifferentiationMatricesForUniformGrid(Nx, xMin, xMax, scheme);
+        OUT.grid.NL = NL;
+        OUT.grid.Nx = Nx;
+        OUT.grid.xMax = xMax;
 end
 %print grid parameters
-fprintf('Ny: %d,   yMax: %2.4g,   Nxi: %d,   dt: %2.3g,  tMax: %2.4g, Nt: %d\n',Ny,yMax,Nxi,dt,tMax,Nt)
+fprintf('Nx: %d,   xMax: %2.4g,   NL: %d,   dt: %2.3g,  tMax: %2.4g, Nt: %d\n',Nx,xMax,NL,dt,tMax,Nt)
 
 % Make x a row vector:
 x = x';
@@ -208,31 +204,31 @@ OUT.x = x;
 
 % Order of rows in the matrix and right-hand side:
 % --------------------
-% for L=0:(Nxi-1)
-%   for iy = 1:(Ny-2)
+% for L=0:(NL-1)
+%   for ix = 1:(Nx-2)
 %     Impose kinetic equation
-%   Impose boundary condition at yMax
-% Enforce regularity: dF/dy=0 at y=0
+%   Impose boundary condition at xMax
+% Enforce regularity: dF/dx=0 at x=0
 
 % Order of columns in the matrix, corresponding to rows in the solution vector:
 % --------------------
-% for L=0:(Nxi-1)
-%   for iy = 1:(Ny-1)
+% for L=0:(NL-1)
+%   for ix = 1:(Nx-1)
 %     Value of F
 % Value of F at y=0
 
-matrixSize = Nxi*(Ny-1) + 1;
+matrixSize = NL*(Nx-1) + 1;
 
 % Predict roughly how many nonzero elements will be in the sparse
 % matrix. This speeds up the code by eliminating the need to reallocate
 % memory during matrix construction.
 % It is sensitive to which self-collision operator is used -- the 
 % conserving ones add dense blocks.
-predictedFillFactor = (3*Nxi*nnz(abs(ddy) + abs(d2dy2)))/(matrixSize*matrixSize);
+predictedFillFactor = (3*NL*nnz(abs(ddx) + abs(d2dx2)))/(matrixSize*matrixSize);
 if settings.momentumConservation && settings.energyConservation
-    predictedFillFactor = predictedFillFactor + 2*Ny*Ny/(matrixSize*matrixSize);
+    predictedFillFactor = predictedFillFactor + 2*Nx*Nx/(matrixSize*matrixSize);
 elseif settings.momentumConservation || settings.energyConservation
-    predictedFillFactor = predictedFillFactor + Ny*Ny/(matrixSize*matrixSize);
+    predictedFillFactor = predictedFillFactor + Nx*Nx/(matrixSize*matrixSize);
 end
 
 fprintf('Matrix size: %g\n',matrixSize)
@@ -247,13 +243,14 @@ fMinus1 = zeros(matrixSize,1);
 switch settings.initialDistribution
     case 0
         % A stationary Maxwellian. This sets our normalization of f
-        fMinus1(1:(Ny-2)) = exp(-x(2:(Ny-1)).^2);
+        fMinus1(1:(Nx-2)) = exp(-x(2:(Nx-1)).^2);
         fMinus1(end) = 1;
     case 1
         % A shifted (non-normalized) Maxwellian
         x0 = .3; %flow velocity
-        fMinus1(1:Ny-2) = (1-x0^2).*exp(-x(2:Ny-1).^2);
-        fMinus1(Ny:2*Ny-3) = 2*x0 * x(2:Ny-1).*exp(-x(2:Ny-1).^2);
+        xVec = x(2:Nx-1);
+        fMinus1(1:Nx-2)    = (1-x0^2).*exp(-xVec.^2);
+        fMinus1(Nx:2*Nx-3) = 2 * x0 * xVec.*exp(-xVec.^2);
         fMinus1(end) = 1;
     otherwise
         error('Invalid setting for initial distribution')
@@ -295,38 +292,38 @@ for iteration = 2:Nt
             lnLambda  = 1;
             collision_time_mod = ne * lnLambda / (ne0 * lnLambda0);
 
-            %I'm sorry that this is a bit ugly -- lots of if statements in
-            %this part of the code due to various settings, could possibly
-            %be compactified
+            % I'm sorry that this is a bit ugly -- lots of if statements in
+            % this part of the code due to various settings, could possibly
+            % be compactified
             if settings.electronCollisions
                 coefficientOf_f = 2*Ta0*(2./x.*G(kappa_e*x) + kappa_e*dG(kappa_e*x));
-                coefficientOf_dfdy = 2*Ta0*G(kappa_e*x) + G(kappa_e*x)./x2 + kappa_e*dG(kappa_e*x)./x;
-                coefficientOf_d2fdy2 = G(kappa_e*x)./x;
+                coefficientOf_dfdx = 2*Ta0*G(kappa_e*x) + G(kappa_e*x)./x2 + kappa_e*dG(kappa_e*x)./x;
+                coefficientOf_d2fdx2 = G(kappa_e*x)./x;
             else
                 coefficientOf_f = 0;
-                coefficientOf_dfdy = 0;
-                coefficientOf_d2fdy2 = 0;
+                coefficientOf_dfdx = 0;
+                coefficientOf_d2fdx2 = 0;
             end
                
             
             if settings.approximateCollOp
                 coefficientOf_f = zeros(size(x));
-                coefficientOf_dfdy = (nbar./x.^2 - nbar./(2*x.^4));
-                coefficientOf_d2fdy2 = nbar./(2*x.^3);
+                coefficientOf_dfdx = (nbar./x.^2 - nbar./(2*x.^4));
+                coefficientOf_d2fdx2 = nbar./(2*x.^3);
             else
                 for i=1:length(rhos)
                     coefficientOf_f = coefficientOf_f + rhos(i)*Zs(i)*2*Ta0/Ts(i)*(2*G(kappas(i)*x)./x + kappas(i)*dG(kappas(i)*x));
-                    coefficientOf_dfdy = coefficientOf_dfdy + rhos(i)*Zs(i)*(2*Ta0/Ts(i)*G(kappas(i)*x) + G(kappas(i)*x)./x2 + kappas(i)*dG(kappas(i)*x)./x);
-                    coefficientOf_d2fdy2 = coefficientOf_d2fdy2 + rhos(i)*Zs(i)*G(kappas(i)*x)./x;
+                    coefficientOf_dfdx = coefficientOf_dfdx + rhos(i)*Zs(i)*(2*Ta0/Ts(i)*G(kappas(i)*x) + G(kappas(i)*x)./x2 + kappas(i)*dG(kappas(i)*x)./x);
+                    coefficientOf_d2fdx2 = coefficientOf_d2fdx2 + rhos(i)*Zs(i)*G(kappas(i)*x)./x;
                 end
             end
            
 
             energyScattering = (diag(coefficientOf_f) ...
-                + diag(coefficientOf_d2fdy2)*d2dy2 + diag(coefficientOf_dfdy)*ddy);
-            if yMaxBoundaryCondition==4
-                fakeViscosity = exp((x-yMax)/(0.1));
-                energyScattering = energyScattering + (1e-2)*diag(fakeViscosity)*d2dy2;
+                + diag(coefficientOf_d2fdx2)*d2dx2 + diag(coefficientOf_dfdx)*ddx);
+            if xMaxBoundaryCondition==4
+                fakeViscosity = exp((x-xMax)/(0.1));
+                energyScattering = energyScattering + (1e-2)*diag(fakeViscosity)*d2dx2;
             end
 
             if settings.electronCollisions
@@ -352,11 +349,11 @@ for iteration = 2:Nt
   
             %%%%% MOMENTUM AND ENERGY CONSERVATION (probably) NOT YET %%%%%
             %%%%% PROPERLY NORMALIZED WITH TIME-DEPENDENT PARAMETERS  %%%%%
-            energyConservingLittleMatrix = zeros(Ny,Ny);
+            energyConservingLittleMatrix = zeros(Nx,Nx);
             if settings.energyConservation
                 energyConservingLittleMatrix = GenerateEnergyConservingLittleMatrix(Ta0,Ts,Phi,dPhi,collision_time_mod,rhos,Zs,x);
             end
-            momentumConservingLittleMatrix = zeros(Ny,Ny);
+            momentumConservingLittleMatrix = zeros(Nx,Nx);
              if settings.momentumConservation
                 momentumConservingLittleMatrix = GenerateMomentumConservingLittleMatrix(Ta0,Ts,Phi,dPhi,collision_time_mod,rhos,Zs,x);
             end
@@ -370,13 +367,13 @@ for iteration = 2:Nt
             sparseCreator_s = 0;
             resetSparseCreator(matrixSize,predictedFillFactor)
 
-            if yMaxBoundaryCondition==3
-                rowRange = 1:(Ny-1);
+            if xMaxBoundaryCondition == 3
+                rowRange = 1:(Nx-1);
             else
-                rowRange = 1:(Ny-2);
+                rowRange = 1:(Nx-2);
             end
 
-            for L=0:(Nxi-1)
+            for L=0:(NL-1)
                 % Add collision operator
                 xPartMatrix = energyScattering - L*(L+1) * xPartOfPitchAngleScatteringMatrix;
                 if L==0
@@ -386,9 +383,9 @@ for iteration = 2:Nt
                     xPartMatrix = xPartMatrix + momentumConservingLittleMatrix;
                 end
 
-                rowIndices = L*(Ny-1) + rowRange;
-                columnIndices = L*(Ny-1) + (1:(Ny-1));
-                addSparseBlock(rowIndices, columnIndices, xPartMatrix(1+rowRange, 2:(Ny)))
+                rowIndices    = L*(Nx-1) + rowRange;
+                columnIndices = L*(Nx-1) + (1:(Nx-1));
+                addSparseBlock(rowIndices, columnIndices, xPartMatrix(1+rowRange, 2:Nx))
                 if L==0
                     addSparseBlock(rowIndices, matrixSize, xPartMatrix(1+rowRange, 1))
                 end
@@ -398,9 +395,9 @@ for iteration = 2:Nt
                 % Sub-diagonal term in L:
                 ell = L-1;
                 if ell >=0
-                    columnIndices = ell*(Ny-1) + (1:(Ny-1));
-                    littleMatrix = L/(2*L-1)* EHat*ddy  - diag(EHat*(L-1)*L/(2*L-1)./x);
-                    addSparseBlock(rowIndices, columnIndices, littleMatrix(1+rowRange, 2:(Ny)))
+                    columnIndices = ell*(Nx-1) + (1:(Nx-1));
+                    littleMatrix  = L/(2*L-1)* EHat*ddx  - diag(EHat*(L-1)*L/(2*L-1)./x);
+                    addSparseBlock(rowIndices, columnIndices, littleMatrix(1+rowRange, 2:Nx))
                     if ell==0
                         addSparseBlock(rowIndices, matrixSize, littleMatrix(1+rowRange, 1))
                     end
@@ -409,10 +406,10 @@ for iteration = 2:Nt
                 % Add electric field term- 
                 % Super-diagonal term in L:
                 ell = L+1;
-                if ell<Nxi
-                    columnIndices = ell*(Ny-1) + (1:(Ny-1));
-                    littleMatrix = (L+1)/(2*L+3)*EHat*ddy  + diag(EHat*(L+1)*(L+2)/(2*L+3)./x);
-                    addSparseBlock(rowIndices, columnIndices, littleMatrix(1+rowRange, 2:(Ny)))
+                if ell<NL
+                    columnIndices = ell*(Nx-1) + (1:(Nx-1));
+                    littleMatrix = (L+1)/(2*L+3)*EHat*ddx  + diag(EHat*(L+1)*(L+2)/(2*L+3)./x);
+                    addSparseBlock(rowIndices, columnIndices, littleMatrix(1+rowRange, 2:Nx))
                 end
 
             end
@@ -423,19 +420,19 @@ for iteration = 2:Nt
             indices = 1:(matrixSize-1);
             addToSparse(indices, indices, ones(size(indices)))
 
-            % For the special point at y=0, apply Neumann condition dF/dy=0:
-            addToSparse(matrixSize, matrixSize, ddy(1,1))
-            addSparseBlock(matrixSize, 1:(Ny-1), ddy(1, 2:Ny))
+            % For the special point at x=0, apply Neumann condition dF/dx=0:
+            addToSparse(matrixSize, matrixSize, ddx(1,1))
+            addSparseBlock(matrixSize, 1:(Nx-1), ddx(1, 2:Nx))
 
-            % Impose boundary conditions at y=yMax:
-            if yMaxBoundaryCondition==2
-                % Add Robin boundary condition dF/dy + (2/y)*F = 0 at yMax:
-                for L=0:(Nxi-1)
-                    rowIndex = L*(Ny-1) + Ny-1;
-                    columnIndices = L*(Ny-1) + (1:(Ny-1));
-                    boundaryCondition = ddy(Ny,:);
-                    boundaryCondition(Ny) = boundaryCondition(Ny) + 2/yMax - 1; %Subtract 1 since we already put a 1 on the diagonal.
-                    addSparseBlock(rowIndex, columnIndices, boundaryCondition(2:Ny))
+            % Impose boundary conditions at x=xMax:
+            if xMaxBoundaryCondition==2
+                % Add Robin boundary condition dF/dx + (2/x)*F = 0 at xMax:
+                for L=0:(NL-1)
+                    rowIndex = L*(Nx-1) + Nx-1;
+                    columnIndices = L*(Nx-1) + (1:(Nx-1));
+                    boundaryCondition = ddx(Nx,:);
+                    boundaryCondition(Nx) = boundaryCondition(Nx) + 2/xMax - 1; %Subtract 1 since we already put a 1 on the diagonal.
+                    addSparseBlock(rowIndex, columnIndices, boundaryCondition(2:Nx))
                     if L==0
                         addSparseBlock(rowIndex, matrixSize, boundaryCondition(1))
                     end
@@ -480,12 +477,12 @@ for iteration = 2:Nt
             rhs = fMinus1 + (dt/2)*operator*fMinus1;
     end
 
-    % Handle boundary condition at y=0:
+    % Handle boundary condition at x=0:
     rhs(end) = 0;
 
-    % Handle boundary condition at y = yMax:
-    if yMaxBoundaryCondition ~= 3
-        rhs((1:Nxi)*(Ny-1)) = 0;
+    % Handle boundary condition at x = xMax:
+    if xMaxBoundaryCondition ~= 3
+        rhs((1:NL)*(Nx-1)) = 0;
     end
 
     % Now step forward in time.

@@ -23,9 +23,9 @@ Zeff = params.Zs(1:end-1) * params.rhos(1:end-1)'/ne;
 nbar = params.ms(1)*sum((params.rhos(1:end-1)...
     .*params.Zs(1:end-1))./params.ms(1:end-1))/ne;
 
-grid.Nxi  = [];
-grid.Ny   = [];
-grid.yMax = [];
+grid.NL  = [];
+grid.Nx   = [];
+grid.xMax = [];
 grid.Nt   = 20;
 grid.tMax = 3; %seconds
 
@@ -50,7 +50,7 @@ settings = s.settings;
 
 
 n    = N_x1x2(x,f,0,1e4);
-vc1 = s.vc1;
+vc1  = s.vc1;
 n_RI = N_x1x2(x,f,vc1,1e3);
 
 
@@ -65,7 +65,7 @@ fprintf('Finished in %gs seconds.\n',toc(time))
 
 pauseTime = 0.5;
 
-AX = [-5 grid.yMax 1e-5  2e-1];
+AX = [-5 grid.xMax 1e-5  2e-1];
 figure(1)
 set(gcf, 'Position', [10, 100, 600, 500])
 for tau=1:grid.Nt

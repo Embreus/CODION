@@ -19,9 +19,9 @@ params.nes  = 1;               %list of time-dependent electron densities.
                               
 Zeff = params.Zs * params.rhos'; 
 
-grid.Nxi  = 30;   %number of legendre modes used to represent the distribution
-grid.Ny   = 150;  %number of velocity grid points
-grid.yMax = 15;   %maxium velocity on the grid
+grid.NL   = 30;   %number of legendre modes used to represent the distribution
+grid.Nx   = 150;  %number of velocity grid points
+grid.xMax = 15;   %maxium velocity on the grid
 grid.Nt   = 10;   %number of time steps
 grid.tMax = 1000; %final time, normalized to \tau_ie
 tHat = linspace(0,grid.tMax,grid.Nt); %the list of times at which the
@@ -35,14 +35,14 @@ params.EHat = -EHat; %the normalized electric field EHat = 2/Z T/Te E*/E_D
 params.refresh_times = 0; % =/= 0 when time-dependent parameters
 
 %%%% example of time-dependent electric field
-%note that runaway_parameters.m does not work with time-dependent
-%input, so gridMode = 'auto' can not be used
+%%%% note that runaway_parameters.m does not work with time-dependent
+%%%% input, so gridMode = 'auto' can not be used
 %params.refresh_times = linspace(0,grid.tMax,grid.Nt)';
 %params.EHat = -EHat * sin( linspace(0,pi,grid.Nt) )';
 
 
 settings.gridMode             = 0; %can use 'auto' to automatically  
-                                   %calculate appropriate Ny and yMax 
+                                   %calculate appropriate Nx and xMax 
                                    %to have well-converged solutions
 settings.approximateCollOp    = 0; %1 uses the v_Ti << v << v_Te asymptotic 
                                    %form of the collision operator
@@ -90,7 +90,7 @@ fprintf('Density conserved to %2.3g %%. \n',100*(n(end)-n(1))/n(1))
 
 pauseTime = 0.5;   % Time in seconds between graph updates
 
-AX = [-5 grid.yMax .99e-5  1];
+AX = [-5 grid.xMax .99e-5  1];
 figure(1)
 set(gcf, 'Position', [10, 100, 600, 500],'color','w')
 for tau=1:grid.Nt
