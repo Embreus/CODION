@@ -55,9 +55,14 @@ vc1 = zeros(size(EHat));
 vc2 = zeros(size(EHat));
 for K = 1:length(EHat)
     if EHat(K) > F(v_min)
-        %use analytic approximative forms as initial guess
-        vc1_g = sqrt((Zeff+nbar)./EHat);
-        vc2_g = sqrt(ma/(me*Ts(1))) * 3*sqrt(pi)/4 .* EHat;
+        %use solution to approximative Eq. as initial guess
+        A = 4/(3*sqrt(pi)) * sqrt(Ts(1)*me/ma);
+        x=sym('x');
+        S = sort(real(double(solve(EHat*x^2-A*x^3-(nbar+Zeff) == 0))));
+        vc1_g = S(2);
+        vc2_g = S(3);
+        %vc1_g = sqrt((Zeff+nbar)./EHat);
+        %vc2_g = sqrt(ma/(me*Ts(1))) * 3*sqrt(pi)/4 .* EHat;
     else
         vc1_g = v_min;
         vc2_g = v_min;
