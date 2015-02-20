@@ -13,10 +13,6 @@ function OUT = CODION(grid0,params0,settings)
 %           CODE paper: M. Landreman et al. Comp. Phys. Comm. 185, 3 (2014)
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%TODO: create an output struct containing not only x and f, but also
-%other quantities such as grid and params (since these can be changed
-%if certain settings are used), collision time, E_D, EHat, E/Ec and more
-
 addpath('./utilities')
 
 totalTime = tic;
@@ -252,6 +248,9 @@ switch settings.initialDistribution
         fMinus1(1:Nx-2)    = (1-x0^2).*exp(-xVec.^2);
         fMinus1(Nx:2*Nx-3) = 2 * x0 * xVec.*exp(-xVec.^2);
         fMinus1(end) = 1;
+    case 'input'
+        % Initializes with some distribution params.initialDistFunc = f;
+        fMinus1 = params.initialDistFunc;
     otherwise
         error('Invalid setting for initial distribution')
 end  
