@@ -19,22 +19,25 @@ params.nes  = 1;               %list of time-dependent electron densities.
                               
 Zeff = params.Zs * params.rhos'; 
 
-grid.NL   = 30;   %number of legendre modes used to represent the distribution
-grid.Nx   = 150;  %number of velocity grid points
-grid.xMax = 15;   %maxium velocity on the grid
-grid.Nt   = 10;   %number of time steps
-grid.tMax = 1000; %final time, normalized to \tau_ie
-tHat = linspace(0,grid.tMax,grid.Nt); %the list of times at which the
-                                      %distribution will be evaluated
+grid.NL   = 30;                         %number of legendre modes used to 
+                                        %represent the distribution
+grid.Nx   = 150;                        %number of velocity grid points
+grid.xMax = 15;                         %maxium velocity on the grid
+grid.Nt   = 10;                         %number of time steps
+grid.tMax = 1000;                       %final time, normalized to \tau_ie
+tHat = linspace(0,grid.tMax,grid.Nt);   %the list of times at which the
+                                        %distribution will be evaluated
 
 
-FHat = .08; %F/Za e E_D = E*/E_D = (1-Z/Zeff)E/E_D, effective electric field
+FHat = .08;                     %F/Za e E_D = E*/E_D = (1-Z/Zeff)E/E_D, 
+                                %effective electric field
 EHat = 2/params.Zs(1) * params.Ts(1,1) * FHat; %normalized effective field
-params.EHat = -EHat; %the normalized electric field EHat = 2/Z T/Te E*/E_D
-                     %Silly sign convention of acceleration direction.
-params.refresh_times = 0; % =/= 0 when time-dependent parameters
+params.EHat = -EHat;            %the normalized electric field 
+                                %EHat = 2/Z T/Te E*/E_D. Silly sign 
+                                %convention of acceleration direction.
+params.refresh_times = 0;       % =/= 0 only when time-dependent parameters
 
-%%%% example of time-dependent electric field
+%%%% Example of time-dependent electric field
 %%%% note that runaway_parameters.m does not work with time-dependent
 %%%% input, so gridMode = 'auto' can not be used
 %params.refresh_times = linspace(0,grid.tMax,grid.Nt)';
@@ -59,8 +62,8 @@ settings.units                = 0; %'SI' for input parameters in SI units,
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-s = CODION(grid,params,settings); %velocity grid x = v/v_Ta and 
-                                  %distribution function f=f/(v_Ta^3 n_a)
+s = CODION(grid,params,settings);  %velocity grid x = v/v_Ta and 
+                                   %distribution function f=f/(v_Ta^3 n_a)
 x = s.x;
 f = s.f;
 grid     = s.grid;
